@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#12131a">
-<title>R90 睡眠打卡</title>
+<title>彦冬 & 小金 · R90 睡眠打卡</title>
 <style>
   :root{
-    --bg:#12131a; --bg2:#1a1c26; --card:#1f2230; --line:#2c3040;
+    --bg:#12131a; --card:#1f2230; --line:#2c3040;
     --ink:#eef0f6; --muted:#9aa0b4; --accent:#7c9cff; --accent2:#a78bfa;
-    --ok:#4ade80; --warm:#fbbf24;
+    --ok:#4ade80; --warm:#fbbf24; --pink:#f472b6;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
@@ -18,13 +18,17 @@
     radial-gradient(900px 500px at 80% -10%,rgba(124,156,255,.18),transparent 60%),
     radial-gradient(700px 400px at -10% 20%,rgba(167,139,250,.14),transparent 60%),
     var(--bg);}
-  .app{max-width:520px;margin:0 auto;padding:14px 16px 96px}
-  header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 12px}
-  .brand{font-size:15px;font-weight:700;letter-spacing:.02em}
+  .app{max-width:540px;margin:0 auto;padding:14px 16px 96px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 12px;gap:8px}
+  .brand{font-size:14.5px;font-weight:700;white-space:nowrap}
   .brand span{color:var(--accent)}
+  .right{display:flex;align-items:center;gap:8px}
+  .sync{font-size:10.5px;color:var(--muted);display:flex;align-items:center;gap:4px}
+  .sync i{width:6px;height:6px;border-radius:50%;background:var(--ok);display:inline-block}
+  .sync.off i{background:#f87171}
   .users{display:flex;background:#232636;border-radius:999px;padding:3px}
   .users button{border:0;background:transparent;color:var(--muted);font-size:12.5px;
-    padding:5px 12px;border-radius:999px;cursor:pointer;font-weight:600}
+    padding:5px 12px;border-radius:999px;cursor:pointer;font-weight:600;white-space:nowrap}
   .users button.on{background:var(--accent);color:#0d1020}
   .card{background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));
     border:1px solid var(--line);border-radius:18px;padding:18px}
@@ -55,6 +59,13 @@
   .mini .t{font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between}
   .mini .v{font-size:19px;font-weight:700;margin-top:4px}
   .mini .v small{font-size:11.5px;color:var(--muted);font-weight:500;margin-left:3px}
+  .partner{display:flex;align-items:center;gap:12px}
+  .partner .avatar{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;
+    font-size:15px;font-weight:700;color:#0d1020;background:linear-gradient(135deg,#7c9cff,#a78bfa);flex:none}
+  .partner .info{flex:1;min-width:0}
+  .partner .name{font-size:14px;font-weight:600}
+  .partner .line{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.55}
+  .partner .line b{color:var(--ok)}
   .check-item{display:flex;align-items:center;gap:12px;background:var(--card);
     border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:10px}
   .check-item .icon{font-size:22px;width:28px;text-align:center}
@@ -68,6 +79,16 @@
     background:#262a39;color:var(--ink);font-size:16px;line-height:1;cursor:pointer}
   .counter button.plus{background:var(--accent);border:0;color:#0d1020;font-weight:700}
   .counter span{min-width:28px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums}
+  .timer-item{background:linear-gradient(160deg,rgba(244,114,182,.10),rgba(31,34,48,.9));
+    border:1px solid #3a2b3c;border-radius:14px;padding:14px;margin-bottom:10px}
+  .timer-item .top{display:flex;align-items:center;gap:10px}
+  .timer-item .icon{font-size:22px}
+  .timer-item .name{font-size:14px;font-weight:600;flex:1}
+  .timer-item .elapsed{font-size:22px;font-weight:800;margin-top:8px;color:#ffd1e5}
+  .timer-item .elapsed small{font-size:12px;font-weight:500;color:var(--muted);margin-left:4px}
+  .timer-item .acts{display:flex;gap:8px;margin-top:8px}
+  .timer-item .acts button{flex:1;border:1px solid #47333f;background:transparent;color:#f0c4d8;
+    border-radius:9px;padding:6px;font-size:11.5px;cursor:pointer}
   .ghost{width:100%;border:1px dashed #3a3f55;background:transparent;color:var(--muted);
     padding:12px;border-radius:13px;font-size:13px;cursor:pointer}
   .plan-table{width:100%;border-collapse:collapse;font-size:13px}
@@ -80,16 +101,23 @@
     padding:12px 2px;border-bottom:1px solid #262a39;font-size:13.5px}
   .row:last-child{border-bottom:0}
   .row input,.row select{background:#242838;border:1px solid var(--line);color:var(--ink);
-    border-radius:9px;padding:7px 9px;font-size:13px;max-width:150px;width:100%;text-align:right}
-  .row input[type=date]{max-width:150px}
+    border-radius:9px;padding:7px 9px;font-size:13px;max-width:160px;width:100%;text-align:right}
+  .presets{display:flex;gap:8px;padding:10px 0 4px}
+  .presets button{flex:1;border:1px solid var(--line);background:#242838;color:var(--muted);
+    border-radius:10px;padding:8px 4px;font-size:12px;cursor:pointer;line-height:1.5}
+  .presets button b{display:block;color:var(--ink);font-size:12.5px}
+  .presets button.on{border-color:var(--accent);background:rgba(124,156,255,.12)}
+  .presets button.on b{color:var(--accent)}
   .save{width:100%;margin-top:16px;border:0;border-radius:13px;padding:13px;
     background:linear-gradient(135deg,#7c9cff,#a78bfa);color:#0d1020;font-weight:700;font-size:14px;cursor:pointer}
   .danger{width:100%;margin-top:10px;border:1px solid #4a2b3a;background:transparent;
     color:#ff9db1;border-radius:13px;padding:11px;font-size:13px;cursor:pointer}
+  .share{width:100%;margin-top:10px;border:1px solid var(--line);background:#242838;
+    color:var(--ink);border-radius:13px;padding:11px;font-size:13px;cursor:pointer}
   .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;
     background:rgba(18,19,26,.92);backdrop-filter:blur(14px);border-top:1px solid var(--line);
     padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
-  .tabbar .inner{max-width:520px;margin:0 auto;display:flex;justify-content:space-around}
+  .tabbar .inner{max-width:540px;margin:0 auto;display:flex;justify-content:space-around}
   .tabbar button{border:0;background:transparent;color:#767c92;font-size:11px;
     display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 12px;cursor:pointer}
   .tabbar button .ic{font-size:18px;line-height:1}
@@ -106,18 +134,20 @@
   .modal .acts button{flex:1;border-radius:11px;padding:10px;border:1px solid var(--line);
     background:#262a39;color:var(--ink);font-size:13px;cursor:pointer}
   .modal .acts button.primary{background:var(--accent);border:0;color:#0d1020;font-weight:700}
-  .empty{text-align:center;color:var(--muted);font-size:13px;padding:26px 0}
-  @media (max-width:380px){.big{font-size:48px}}
+  .empty{text-align:center;color:var(--muted);font-size:13px;padding:24px 0}
+  @media (max-width:380px){.big{font-size:48px}.brand{font-size:13px}}
 </style>
 </head>
 <body>
 <div class="app">
   <header>
     <div class="brand">R90 <span>睡眠打卡</span></div>
-    <div class="users" id="userSwitch"></div>
+    <div class="right">
+      <div class="sync" id="syncState"><i></i><span>同步中</span></div>
+      <div class="users" id="userSwitch"></div>
+    </div>
   </header>
 
-  <!-- 今日 -->
   <section id="view-today">
     <div class="card hero">
       <div class="label" id="heroLabel">今晚入睡</div>
@@ -138,11 +168,21 @@
       <div class="tip" id="phaseTip"></div>
     </div>
 
+    <div class="section-title"><span>对方情况</span><span id="partnerUpdated"></span></div>
+    <div class="card">
+      <div class="partner">
+        <div class="avatar" id="partnerAvatar">金</div>
+        <div class="info">
+          <div class="name" id="partnerName">小金</div>
+          <div class="line" id="partnerLine">正在同步…</div>
+        </div>
+      </div>
+    </div>
+
     <div class="section-title"><span>今日打卡</span><span id="todayDone"></span></div>
     <div class="grid" id="todayModules"></div>
   </section>
 
-  <!-- 计划 -->
   <section id="view-plan" hidden>
     <div class="section-title"><span>渐进调整计划</span><span id="planRange"></span></div>
     <div class="card" style="padding:6px 14px 10px">
@@ -152,11 +192,10 @@
       </table>
     </div>
     <div class="tip" style="padding:10px 4px">
-      每 <b id="stepDaysText">2</b> 天提前 <b id="stepMinText">30</b> 分钟，直到目标入睡时间。起床时间 = 入睡 + 缓冲 + 周期数 × 90 分钟，保证醒来在周期末。
+      每 <b id="stepDaysText">2</b> 天提前 <b id="stepMinText">30</b> 分钟，共 <b id="totalDaysText">22</b> 天到位。起床时间 = 入睡 + 缓冲 + 周期数 × 90 分钟，保证醒来在周期末。
     </div>
   </section>
 
-  <!-- 打卡 -->
   <section id="view-check" hidden>
     <div class="section-title"><span>打卡项</span><span id="streakText"></span></div>
     <div id="checkList"></div>
@@ -164,7 +203,6 @@
     <div class="tip" style="padding:12px 4px">每天 0 点自动重置。连续打卡按“当天至少完成一项”计算。</div>
   </section>
 
-  <!-- 设置 -->
   <section id="view-set" hidden>
     <div class="section-title"><span>作息设置</span><span id="setUser"></span></div>
     <div class="card">
@@ -179,14 +217,22 @@
         </select>
       </div>
       <div class="row"><span>入睡缓冲（分钟）</span><input id="inBuffer" type="number" min="0" max="60" step="5"></div>
-      <div class="row"><span>每次提前（分钟）</span><input id="inStep" type="number" min="10" max="60" step="5"></div>
-      <div class="row"><span>间隔天数</span><input id="inStepDays" type="number" min="1" max="7" step="1"></div>
       <div class="row"><span>开始日期</span><input id="inStartDate" type="date"></div>
+
+      <div style="font-size:13px;color:var(--muted);padding-top:14px">调整节奏</div>
+      <div class="presets" id="presets">
+        <button data-min="20" data-days="3"><b>稳健</b>20 分钟 / 3 天</button>
+        <button data-min="30" data-days="2"><b>标准</b>30 分钟 / 2 天</button>
+        <button data-min="30" data-days="1"><b>加快</b>30 分钟 / 1 天</button>
+      </div>
+      <div class="tip" id="paceTip" style="margin-top:6px"></div>
+
       <button class="save" id="btnSave">保存设置</button>
+      <button class="share" id="btnShare">复制共享链接（发给对方）</button>
       <button class="danger" id="btnReset">清空我的打卡记录</button>
     </div>
     <div class="tip" style="padding:12px 4px">
-      调整建议：白天多晒太阳、睡前 2 小时不碰强光；按计划入睡前 30 分钟关掉大屏。
+      调整建议：白天多晒太阳、睡前 2 小时不碰强光；按计划入睡前 30 分钟关掉大屏。两个人的数据各自保存，互不覆盖。
     </div>
   </section>
 
@@ -216,8 +262,13 @@
 
 <script>
 (function(){
-  const KEY = 'r90_checkin_v1';
+  const KEY = 'r90_checkin_v2';
+  const API = 'https://api.restful-api.dev/objects/';
   const DAY = 86400000;
+  const DEFAULT_IDS = {
+    yandong: 'ff808181a09d98f701a1c95cb2a2058f',
+    xiaojin: 'ff808181a09d98f701a1c95cb4960590'
+  };
 
   const pad = n => String(n).padStart(2,'0');
   const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
@@ -227,37 +278,46 @@
   const diffDays = (a,b) => Math.round((parseDate(b) - parseDate(a)) / DAY);
   const addDays = (s,n) => { const d = parseDate(s); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
   const weekday = s => ['周日','周一','周二','周三','周四','周五','周六'][parseDate(s).getDay()];
+  const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function defaultSettings(){
     return { targetBed:'22:00', startBed:'03:30', cycles:5, buffer:15, stepMin:30, stepDays:2, startDate: todayStr() };
   }
-  function defaultModules(){
+  function baseModules(){
     return [
-      { id:'water', name:'喝水', icon:'💧', target:8, unit:'杯' },
-      { id:'read', name:'读书', icon:'📖', target:1, unit:'次' },
-      { id:'sun', name:'晒太阳', icon:'☀️', target:1, unit:'次' },
-      { id:'nophone', name:'睡前不刷手机', icon:'📵', target:1, unit:'次' }
+      { id:'water', name:'喝水', icon:'💧', target:8, unit:'杯', type:'count' },
+      { id:'read', name:'读书', icon:'📖', target:1, unit:'次', type:'count' },
+      { id:'sun', name:'晒太阳', icon:'☀️', target:1, unit:'次', type:'count' },
+      { id:'nophone', name:'睡前不刷手机', icon:'📵', target:1, unit:'次', type:'count' }
     ];
   }
+  function newUser(name, withTimer){
+    const mods = baseModules();
+    if(withTimer){
+      mods.push({ id:'smoke', name:'戒烟', icon:'🚭', type:'timer', since: new Date().toISOString() });
+    }
+    return { name, updatedAt: 0, settings: defaultSettings(), modules: mods, logs: {} };
+  }
   function defaultData(){
-    return {
-      active:'a',
-      users:{
-        a:{ name:'我', settings:defaultSettings(), modules:defaultModules(), logs:{} },
-        b:{ name:'TA', settings:defaultSettings(), modules:defaultModules(), logs:{} }
-      }
-    };
+    return { active:'yandong', users:{ yandong:newUser('彦冬', true), xiaojin:newUser('小金', false) } };
   }
 
-  let data, memoryOnly = false;
+  const params = new URLSearchParams(location.search);
+  const IDS = {
+    yandong: params.get('a') || DEFAULT_IDS.yandong,
+    xiaojin: params.get('b') || DEFAULT_IDS.xiaojin
+  };
+
+  let data, memoryOnly = false, syncOk = true, pushTimer = {};
   try{
     const raw = localStorage.getItem(KEY);
     data = raw ? JSON.parse(raw) : defaultData();
-    if(!data.users || !data.users.a) data = defaultData();
+    if(!data.users || !data.users.yandong) data = defaultData();
   }catch(e){ memoryOnly = true; data = defaultData(); }
 
   const save = () => { if(memoryOnly) return; try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){ memoryOnly = true; } };
   const user = () => data.users[data.active];
+  const otherId = () => data.active === 'yandong' ? 'xiaojin' : 'yandong';
   const today = () => todayStr();
   const todayLog = () => {
     const u = user(), d = today();
@@ -284,13 +344,73 @@
     const idx = diffDays(s.startDate, today());
     return Math.max(0, Math.min(idx, totalDays(s)));
   }
+  function elapsedSince(iso){
+    const ms = Math.max(0, Date.now() - new Date(iso).getTime());
+    const totalHours = Math.floor(ms / 3600000);
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    const mins = Math.floor((ms % 3600000) / 60000);
+    return { totalHours, days, hours, mins };
+  }
 
+  // ---------- 同步 ----------
+  async function pull(){
+    try{
+      const results = await Promise.all(['yandong','xiaojin'].map(async uid=>{
+        const r = await fetch(API + IDS[uid], {cache:'no-store'});
+        if(!r.ok) return null;
+        const j = await r.json();
+        return { uid, remote: j.data };
+      }));
+      let changed = false;
+      results.forEach(res=>{
+        if(!res || !res.remote || !res.remote.settings) return;
+        const local = data.users[res.uid];
+        if((res.remote.updatedAt || 0) > (local.updatedAt || 0)){
+          data.users[res.uid] = res.remote;
+          changed = true;
+        }
+      });
+      if(changed) save();
+      syncOk = true;
+    }catch(e){
+      syncOk = false;
+    }
+    renderSync(); renderToday(); renderCheck();
+  }
+  async function push(uid){
+    const u = data.users[uid];
+    try{
+      const r = await fetch(API + IDS[uid], {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name:'r90-'+uid, data:u })
+      });
+      syncOk = r.ok;
+    }catch(e){ syncOk = false; }
+    renderSync();
+  }
+  function markDirty(uid){
+    const u = data.users[uid];
+    u.updatedAt = Date.now();
+    save();
+    clearTimeout(pushTimer[uid]);
+    pushTimer[uid] = setTimeout(()=>push(uid), 700);
+  }
+
+  function renderSync(){
+    const el = document.getElementById('syncState');
+    el.classList.toggle('off', !syncOk);
+    el.querySelector('span').textContent = syncOk ? '已同步' : '离线';
+  }
+
+  // ---------- 渲染 ----------
   function renderUsers(){
     const box = document.getElementById('userSwitch');
     box.innerHTML = '';
-    ['a','b'].forEach(id=>{
+    ['yandong','xiaojin'].forEach(id=>{
       const b = document.createElement('button');
-      b.textContent = data.users[id].name || (id==='a'?'我':'TA');
+      b.textContent = data.users[id].name || (id==='yandong'?'彦冬':'小金');
       b.className = data.active === id ? 'on' : '';
       b.onclick = () => { data.active = id; save(); renderAll(); };
       box.appendChild(b);
@@ -321,7 +441,6 @@
       document.getElementById('sleepStatus').textContent = '';
     }
 
-    // 倒计时
     const now = new Date();
     const nowMin = now.getHours()*60 + now.getMinutes();
     let delta = p.bed - nowMin;
@@ -335,7 +454,6 @@
       cd.innerHTML = '距入睡还有 <b>' + Math.floor(delta/60) + '</b> 小时 <b>' + (delta%60) + '</b> 分';
     }
 
-    // 进度
     const tDays = totalDays(s);
     const pct = Math.min(100, Math.round((diffDays(s.startDate, today()) / Math.max(1,tDays)) * 100));
     document.getElementById('progressFrom').textContent = s.startBed;
@@ -348,15 +466,26 @@
     if(idx <= 0) tip = '刚开始：先把起床时间固定住，今晚按计划点“我要睡了”，明早按时起。';
     else if(idx < tDays*0.4) tip = '前半程：每天提前一点点，白天多晒太阳，晚上少看强光，身体会跟得更快。';
     else if(idx < tDays*0.8) tip = '中段：最容易反复，别补觉太久，午睡控制在 20 分钟内。';
-    else if(idx < tDays) tip = '收尾：快到目标了，重点是把 22:00 固定成习惯，周末也别推迟超过 1 小时。';
-    else tip = '已到目标作息：保持 22:00 入睡，按周期起床，别轻易打乱。';
+    else if(idx < tDays) tip = '收尾：快到目标了，重点是把 ' + s.targetBed + ' 固定成习惯，周末也别推迟超过 1 小时。';
+    else tip = '已到目标作息：保持 ' + s.targetBed + ' 入睡，按周期起床，别轻易打乱。';
     document.getElementById('phaseTip').textContent = tip;
 
-    // 今日打卡小卡
+    renderPartner();
+
     const grid = document.getElementById('todayModules');
     grid.innerHTML = '';
     let doneCount = 0;
     user().modules.forEach(m=>{
+      if(m.type === 'timer'){
+        const e = elapsedSince(m.since);
+        const div = document.createElement('div');
+        div.className = 'mini';
+        div.style.gridColumn = '1 / -1';
+        div.innerHTML = '<div class="t"><span>' + m.icon + ' ' + m.name + '</span><span>' + e.totalHours + ' 小时</span></div>' +
+          '<div class="v">' + e.days + ' 天 <small>' + e.hours + ' 小时</small></div>';
+        grid.appendChild(div);
+        return;
+      }
       const c = log.checks[m.id] || 0;
       if(c >= m.target) doneCount++;
       const div = document.createElement('div');
@@ -365,7 +494,41 @@
         '<div class="v">' + c + '<small>' + m.unit + '</small></div>';
       grid.appendChild(div);
     });
-    document.getElementById('todayDone').textContent = doneCount + ' / ' + user().modules.length + ' 完成';
+    document.getElementById('todayDone').textContent = doneCount + ' / ' + user().modules.filter(m=>m.type!=='timer').length + ' 完成';
+  }
+
+  function renderPartner(){
+    const oid = otherId();
+    const ou = data.users[oid];
+    const nameEl = document.getElementById('partnerName');
+    const lineEl = document.getElementById('partnerLine');
+    const avEl = document.getElementById('partnerAvatar');
+    const upEl = document.getElementById('partnerUpdated');
+    nameEl.textContent = ou.name;
+    avEl.textContent = (ou.name || '?').slice(-1);
+    if(!ou.settings){
+      lineEl.textContent = '对方还没开始记录';
+      upEl.textContent = '';
+      return;
+    }
+    const os = ou.settings;
+    const oidx = Math.max(0, Math.min(diffDays(os.startDate, today()), totalDays(os)));
+    const op = planFor(oidx, os);
+    const olog = ou.logs[today()] || {checks:{}};
+    const total = ou.modules.filter(m=>m.type!=='timer').length;
+    const done = ou.modules.filter(m=>m.type!=='timer' && (olog.checks||{})[m.id] >= m.target).length;
+    let streak = 0, d = today();
+    for(let i=0;i<400;i++){
+      const lg = ou.logs[d];
+      if(lg && lg.checks && Object.keys(lg.checks).some(k=>lg.checks[k] > 0)) streak++;
+      else if(i>0) break;
+      d = addDays(d,-1);
+    }
+    lineEl.innerHTML =
+      '今晚 <b>' + toTime(op.bed) + '</b> 睡 · <b>' + toTime(op.wake) + '</b> 起<br>' +
+      '今日打卡 ' + done + '/' + total + ' · 连续 ' + streak + ' 天' +
+      (olog.sleep && olog.sleep.bed ? ' · 已入睡' : '');
+    upEl.textContent = ou.updatedAt ? '更新于 ' + new Date(ou.updatedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '';
   }
 
   function renderPlan(){
@@ -388,6 +551,7 @@
     document.getElementById('planRange').textContent = s.startBed + ' → ' + s.targetBed;
     document.getElementById('stepDaysText').textContent = s.stepDays;
     document.getElementById('stepMinText').textContent = s.stepMin;
+    document.getElementById('totalDaysText').textContent = tDays;
   }
 
   function renderCheck(){
@@ -398,27 +562,59 @@
       list.innerHTML = '<div class="empty">还没有打卡项，点下面添加一个</div>';
     }
     u.modules.forEach(m=>{
+      if(m.type === 'timer'){
+        const e = elapsedSince(m.since);
+        const el = document.createElement('div');
+        el.className = 'timer-item';
+        el.innerHTML =
+          '<div class="top"><div class="icon">' + m.icon + '</div><div class="name">' + escapeHtml(m.name) + '</div>' +
+          '<div style="font-size:11.5px;color:var(--muted)">共 ' + e.totalHours + ' 小时</div></div>' +
+          '<div class="elapsed">' + e.days + ' 天 ' + e.hours + ' 小时<small>' + e.mins + ' 分</small></div>' +
+          '<div class="acts"><button data-reset-timer="' + m.id + '">从此刻重新计时</button>' +
+          '<button data-edit-timer="' + m.id + '">修改起点</button></div>';
+        list.appendChild(el);
+        return;
+      }
       const c = log.checks[m.id] || 0;
       const pct = Math.min(100, Math.round(c / m.target * 100));
       const el = document.createElement('div');
       el.className = 'check-item';
       el.innerHTML =
         '<div class="icon">' + m.icon + '</div>' +
-        '<div class="body"><div class="name">' + m.name + '</div>' +
-        '<div class="meta">今日 ' + c + ' / ' + m.target + ' ' + m.unit + (c>=m.target?' · 已完成':'') + '</div>' +
+        '<div class="body"><div class="name">' + escapeHtml(m.name) + '</div>' +
+        '<div class="meta">今日 ' + c + ' / ' + m.target + ' ' + escapeHtml(m.unit) + (c>=m.target?' · 已完成':'') + '</div>' +
         '<div class="mini-bar"><i style="width:' + pct + '%"></i></div></div>' +
         '<div class="counter"><button data-minus="' + m.id + '">−</button>' +
         '<span>' + c + '</span><button class="plus" data-plus="' + m.id + '">＋</button></div>';
       list.appendChild(el);
     });
     list.querySelectorAll('[data-plus]').forEach(b=>{
-      b.onclick = () => { const id=b.dataset.plus; log.checks[id]=(log.checks[id]||0)+1; save(); renderCheck(); renderToday(); };
+      b.onclick = () => { const id=b.dataset.plus; log.checks[id]=(log.checks[id]||0)+1; markDirty(data.active); renderCheck(); renderToday(); };
     });
     list.querySelectorAll('[data-minus]').forEach(b=>{
-      b.onclick = () => { const id=b.dataset.minus; log.checks[id]=Math.max(0,(log.checks[id]||0)-1); save(); renderCheck(); renderToday(); };
+      b.onclick = () => { const id=b.dataset.minus; log.checks[id]=Math.max(0,(log.checks[id]||0)-1); markDirty(data.active); renderCheck(); renderToday(); };
+    });
+    list.querySelectorAll('[data-reset-timer]').forEach(b=>{
+      b.onclick = () => {
+        if(!confirm('从现在开始重新计时？')) return;
+        const m = u.modules.find(x=>x.id===b.dataset.resetTimer);
+        m.since = new Date().toISOString();
+        markDirty(data.active); renderCheck(); renderToday();
+      };
+    });
+    list.querySelectorAll('[data-edit-timer]').forEach(b=>{
+      b.onclick = () => {
+        const m = u.modules.find(x=>x.id===b.dataset.editTimer);
+        const cur = new Date(m.since);
+        const s = prompt('输入开始日期时间（YYYY-MM-DD HH:MM）', cur.getFullYear()+'-'+pad(cur.getMonth()+1)+'-'+pad(cur.getDate())+' '+pad(cur.getHours())+':'+pad(cur.getMinutes()));
+        if(!s) return;
+        const d = new Date(s.replace(' ','T'));
+        if(isNaN(d.getTime())){ alert('格式不对，请用 YYYY-MM-DD HH:MM'); return; }
+        m.since = d.toISOString();
+        markDirty(data.active); renderCheck(); renderToday();
+      };
     });
 
-    // 连续打卡
     let streak = 0, d = today();
     for(let i=0;i<400;i++){
       const lg = u.logs[d];
@@ -438,14 +634,23 @@
     document.getElementById('inStartBed').value = s.startBed;
     document.getElementById('inCycles').value = s.cycles;
     document.getElementById('inBuffer').value = s.buffer;
-    document.getElementById('inStep').value = s.stepMin;
-    document.getElementById('inStepDays').value = s.stepDays;
     document.getElementById('inStartDate').value = s.startDate;
+    updatePace();
   }
 
-  function renderAll(){ renderUsers(); renderToday(); renderPlan(); renderCheck(); renderSet(); }
+  function updatePace(){
+    const s = user().settings;
+    const tDays = totalDays(s);
+    document.getElementById('paceTip').textContent =
+      '当前：每 ' + s.stepDays + ' 天提前 ' + s.stepMin + ' 分钟，共需 ' + tDays + ' 天到达 ' + s.targetBed + '。';
+    document.querySelectorAll('#presets button').forEach(b=>{
+      b.classList.toggle('on', +b.dataset.min === s.stepMin && +b.dataset.days === s.stepDays);
+    });
+  }
 
-  // 事件
+  function renderAll(){ renderUsers(); renderToday(); renderPlan(); renderCheck(); renderSet(); renderSync(); }
+
+  // ---------- 事件 ----------
   document.querySelectorAll('.tabbar button').forEach(b=>{
     b.onclick = () => {
       document.querySelectorAll('.tabbar button').forEach(x=>x.classList.remove('on'));
@@ -461,7 +666,7 @@
     const now = new Date();
     const log = todayLog();
     log.sleep = { bed: pad(now.getHours())+':'+pad(now.getMinutes()), wake:null, cycles:0 };
-    save(); renderToday();
+    markDirty(data.active); renderToday();
   };
   document.getElementById('btnWake').onclick = () => {
     const now = new Date();
@@ -473,7 +678,7 @@
     const buffered = Math.max(0, dur - user().settings.buffer);
     log.sleep.wake = wake;
     log.sleep.cycles = Math.floor(buffered / 90);
-    save(); renderToday();
+    markDirty(data.active); renderToday();
   };
 
   document.getElementById('addModule').onclick = () => {
@@ -490,11 +695,19 @@
     const icon = document.getElementById('mIcon').value.trim() || '⭐';
     const target = Math.max(1, parseInt(document.getElementById('mTarget').value) || 1);
     const unit = document.getElementById('mUnit').value.trim() || '次';
-    user().modules.push({ id:'m'+Date.now(), name, icon, target, unit });
-    save();
+    user().modules.push({ id:'m'+Date.now(), name, icon, target, unit, type:'count' });
+    markDirty(data.active);
     document.getElementById('modal').classList.remove('show');
     renderCheck(); renderToday();
   };
+
+  document.querySelectorAll('#presets button').forEach(b=>{
+    b.onclick = () => {
+      user().settings.stepMin = +b.dataset.min;
+      user().settings.stepDays = +b.dataset.days;
+      updatePace(); renderPlan();
+    };
+  });
 
   document.getElementById('btnSave').onclick = () => {
     const s = user().settings;
@@ -502,24 +715,39 @@
     s.startBed = document.getElementById('inStartBed').value || '03:30';
     s.cycles = parseInt(document.getElementById('inCycles').value) || 5;
     s.buffer = Math.max(0, parseInt(document.getElementById('inBuffer').value) || 15);
-    s.stepMin = Math.max(10, parseInt(document.getElementById('inStep').value) || 30);
-    s.stepDays = Math.max(1, parseInt(document.getElementById('inStepDays').value) || 2);
     s.startDate = document.getElementById('inStartDate').value || todayStr();
-    user().name = document.getElementById('inName').value.trim() || (data.active==='a'?'我':'TA');
-    save(); renderAll();
+    user().name = document.getElementById('inName').value.trim() || user().name;
+    markDirty(data.active); renderAll();
     alert('已保存');
+  };
+
+  document.getElementById('btnShare').onclick = async () => {
+    const url = location.origin + location.pathname + '?a=' + IDS.yandong + '&b=' + IDS.xiaojin;
+    try{
+      await navigator.clipboard.writeText(url);
+      alert('已复制共享链接，发给对方即可：\n' + url);
+    }catch(e){
+      prompt('复制这个链接发给对方：', url);
+    }
   };
 
   document.getElementById('btnReset').onclick = () => {
     if(!confirm('清空 ' + user().name + ' 的全部打卡和睡眠记录？')) return;
     user().logs = {};
-    save(); renderAll();
+    markDirty(data.active); renderAll();
   };
 
-  // 每分钟刷新倒计时
   setInterval(renderToday, 60000);
+  setInterval(pull, 20000);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) pull(); });
 
   renderAll();
+  pull().then(()=>{
+    // 首次使用：把本地默认数据推到共享槽
+    ['yandong','xiaojin'].forEach(uid=>{
+      if(!data.users[uid].updatedAt) push(uid);
+    });
+  });
 })();
 </script>
 </body>
