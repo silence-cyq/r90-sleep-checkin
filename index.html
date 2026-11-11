@@ -119,7 +119,7 @@
     padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
   .tabbar .inner{max-width:540px;margin:0 auto;display:flex;justify-content:space-around}
   .tabbar button{border:0;background:transparent;color:#767c92;font-size:11px;
-    display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 12px;cursor:pointer}
+    display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 8px;cursor:pointer}
   .tabbar button .ic{font-size:18px;line-height:1}
   .tabbar button.on{color:var(--accent)}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;
@@ -138,6 +138,24 @@
     color:#ff9db1;border-radius:11px;padding:10px;font-size:12.5px;cursor:pointer}
   .edit-link{border:0;background:transparent;color:var(--muted);font-size:11px;
     padding:2px 0 0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+  .flower-card{background:linear-gradient(160deg,rgba(244,114,182,.12),rgba(31,34,48,.9));
+    border:1px solid #3a2b3c;border-radius:16px;padding:14px}
+  .flower-card .n{font-size:13px;color:#f5c6dc}
+  .flower-card .score{font-size:26px;font-weight:800;margin-top:4px;color:#ffd1e5}
+  .flower-card .score small{font-size:11px;color:var(--muted);font-weight:500;margin-left:4px}
+  .flower-card .st{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .day-row{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid #262a39;font-size:12.8px}
+  .day-row .d{width:92px;color:#c9cfe2}
+  .day-tag{font-size:11px;padding:1px 7px;border-radius:999px;white-space:nowrap}
+  .day-tag.done{background:rgba(74,222,128,.14);color:#7ee2a8}
+  .day-tag.miss{background:rgba(248,113,113,.14);color:#ff9d9d}
+  .day-tag.leave{background:rgba(124,156,255,.14);color:#9db4ff}
+  .day-tag.makeup{background:rgba(251,191,36,.14);color:#ffd479}
+  .day-tag.pending{background:rgba(154,160,180,.14);color:#aab0c4}
+  .day-row .act{margin-left:auto;display:flex;gap:6px}
+  .day-row .act button{border:1px solid #363b4d;background:transparent;color:var(--muted);
+    border-radius:8px;padding:3px 8px;font-size:10.5px;cursor:pointer}
+  .day-row .act button:hover{color:var(--ink)}
   .empty{text-align:center;color:var(--muted);font-size:13px;padding:24px 0}
   @media (max-width:380px){.big{font-size:48px}.brand{font-size:13px}}
 </style>
@@ -207,6 +225,22 @@
     <div class="tip" style="padding:12px 4px">每天 0 点自动重置。连续打卡按“当天至少完成一项”计算。</div>
   </section>
 
+  <section id="view-flower" hidden>
+    <div class="section-title"><span>小红花榜</span><span>按时睡 + 全部打卡</span></div>
+    <div class="grid" id="flowerBoard"></div>
+
+    <div class="section-title"><span>我的记录</span><span id="flowerTotal"></span></div>
+    <div class="card" style="padding:6px 14px 10px" id="flowerList"></div>
+
+    <div class="card" style="margin-top:10px">
+      <div class="row"><span>请假日期</span><input id="leaveDate" type="date"></div>
+      <button class="ghost" id="btnLeave">设为请假（当天不扣花）</button>
+    </div>
+    <div class="tip" style="padding:12px 4px">
+      规则：按时入睡（不晚于计划）且当天全部打卡完成，得 1 朵；未完成扣 1 朵；戒烟计时不计入打卡项；请假当天不增不减；补签可把过去未完成的一天改为得花。
+    </div>
+  </section>
+
   <section id="view-set" hidden>
     <div class="section-title"><span>作息设置</span><span id="setUser"></span></div>
     <div class="card">
@@ -245,6 +279,7 @@
       <button data-view="today" class="on"><span class="ic">🌙</span>今日</button>
       <button data-view="plan"><span class="ic">📅</span>计划</button>
       <button data-view="check"><span class="ic">✅</span>打卡</button>
+      <button data-view="flower"><span class="ic">🌸</span>小红花</button>
       <button data-view="set"><span class="ic">⚙️</span>设置</button>
     </div>
   </nav>
@@ -302,7 +337,7 @@
     if(withTimer){
       mods.push({ id:'smoke', name:'戒烟', icon:'🚭', type:'timer', since: new Date().toISOString() });
     }
-    return { name, updatedAt: 0, settings: defaultSettings(), modules: mods, logs: {} };
+    return { name, updatedAt: 0, settings: defaultSettings(), modules: mods, logs: {}, overrides: {} };
   }
   function defaultData(){
     return { active:'yandong', users:{ yandong:newUser('彦冬', true), xiaojin:newUser('小金', false) } };
@@ -720,14 +755,120 @@
     });
   }
 
-  function renderAll(){ renderUsers(); renderToday(); renderPlan(); renderCheck(); renderSet(); renderSync(); }
+  // ---------- 小红花 ----------
+  function dayStatus(u, date, isToday){
+    const ov = u.overrides || {};
+    if(ov[date] === 'leave') return { type:'leave', delta:0, label:'请假' };
+    if(ov[date] === 'makeup') return { type:'makeup', delta:1, label:'补签 +1' };
+    const lg = (u.logs || {})[date] || {};
+    const mods = (u.modules || []).filter(m=>m.type !== 'timer');
+    const done = mods.filter(m=>((lg.checks||{})[m.id]||0) >= m.target).length;
+    const allDone = mods.length === 0 ? true : done === mods.length;
+    const onTime = !!(lg.sleep && lg.sleep.bedOk);
+    if(onTime && allDone) return { type:'done', delta:1, label:'得花 +1' };
+    if(isToday) return { type:'pending', delta:0, label:'进行中', done, total:mods.length, onTime };
+    return { type:'miss', delta:-1, label:'扣花 -1' };
+  }
+  function flowerTotal(u){
+    const start = (u.settings && u.settings.startDate) || today();
+    const diff = diffDays(start, today());
+    if(diff < 0) return 0;
+    const days = Math.min(365, diff);
+    let total = 0;
+    for(let i=0;i<=days;i++){
+      const d = addDays(start, i);
+      total += dayStatus(u, d, d === today()).delta;
+    }
+    return total;
+  }
+  function renderFlowers(){
+    const board = document.getElementById('flowerBoard');
+    board.innerHTML = '';
+    ['yandong','xiaojin'].forEach(uid=>{
+      const u = data.users[uid];
+      const r = dayStatus(u, today(), true);
+      const card = document.createElement('div');
+      card.className = 'flower-card';
+      let st;
+      if(r.type === 'done') st = '今日已完成，+1 朵';
+      else if(r.type === 'leave') st = '今日请假，不增不减';
+      else if(r.type === 'makeup') st = '今日已补签，+1 朵';
+      else st = '今日完成 ' + (r.done||0) + '/' + (r.total||0) + ' · ' + (r.onTime ? '已按时睡' : '待入睡');
+      card.innerHTML = '<div class="n">' + escapeHtml(u.name) + '</div>' +
+        '<div class="score">🌸 ' + flowerTotal(u) + '<small>朵</small></div>' +
+        '<div class="st">' + st + '</div>';
+      board.appendChild(card);
+    });
+
+    const u = user();
+    u.overrides = u.overrides || {};
+    const start = (u.settings && u.settings.startDate) || today();
+    const diffStart = diffDays(start, today());
+    const days = Math.min(30, Math.max(0, diffStart));
+    const list = document.getElementById('flowerList');
+    list.innerHTML = '';
+    let total = 0;
+    for(let i=days;i>=0;i--){
+      const d = addDays(start, i);
+      const r = dayStatus(u, d, d === today());
+      total += r.delta;
+      const row = document.createElement('div');
+      row.className = 'day-row';
+      let acts = '';
+      if(r.type === 'miss' && diffDays(d, today()) <= 7){
+        acts += '<button data-makeup="' + d + '">补签</button>';
+      }
+      if(u.overrides[d]){
+        acts += '<button data-undo="' + d + '">撤销</button>';
+      }else if(r.type !== 'leave'){
+        acts += '<button data-leave="' + d + '">请假</button>';
+      }
+      row.innerHTML = '<span class="d">' + d.slice(5) + ' ' + weekday(d) + '</span>' +
+        '<span class="day-tag ' + r.type + '">' + r.label + '</span>' +
+        '<span class="act">' + acts + '</span>';
+      list.appendChild(row);
+    }
+    if(diffStart < 0){
+      list.innerHTML = '<div class="empty">计划从 ' + start + ' 开始，还没到第一天</div>';
+    }else if(!days && !list.children.length){
+      list.innerHTML = '<div class="empty">今天开始，完成一次打卡就能拿第一朵花</div>';
+    }
+    const ld = document.getElementById('leaveDate');
+    if(!ld.value) ld.value = today();
+    document.getElementById('flowerTotal').textContent = '共 ' + flowerTotal(u) + ' 朵';
+
+    list.querySelectorAll('[data-makeup]').forEach(b=>{
+      b.onclick = () => {
+        const d = b.dataset.makeup;
+        if(!confirm('补签 ' + d + '？当天将改为得花。')) return;
+        u.overrides[d] = 'makeup';
+        markDirty(data.active); renderFlowers();
+      };
+    });
+    list.querySelectorAll('[data-leave]').forEach(b=>{
+      b.onclick = () => {
+        const d = b.dataset.leave;
+        if(!confirm('把 ' + d + ' 设为请假？当天不增不减。')) return;
+        u.overrides[d] = 'leave';
+        markDirty(data.active); renderFlowers();
+      };
+    });
+    list.querySelectorAll('[data-undo]').forEach(b=>{
+      b.onclick = () => {
+        delete u.overrides[b.dataset.undo];
+        markDirty(data.active); renderFlowers();
+      };
+    });
+  }
+
+  function renderAll(){ renderUsers(); renderToday(); renderPlan(); renderCheck(); renderFlowers(); renderSet(); renderSync(); }
 
   // ---------- 事件 ----------
   document.querySelectorAll('.tabbar button').forEach(b=>{
     b.onclick = () => {
       document.querySelectorAll('.tabbar button').forEach(x=>x.classList.remove('on'));
       b.classList.add('on');
-      ['today','plan','check','set'].forEach(v=>{
+      ['today','plan','check','flower','set'].forEach(v=>{
         document.getElementById('view-'+v).hidden = (v !== b.dataset.view);
       });
       window.scrollTo({top:0,behavior:'smooth'});
@@ -880,6 +1021,15 @@
     if(!confirm('清空 ' + user().name + ' 的全部打卡和睡眠记录？')) return;
     user().logs = {};
     markDirty(data.active); renderAll();
+  };
+
+  document.getElementById('btnLeave').onclick = () => {
+    const d = document.getElementById('leaveDate').value || today();
+    const u = user();
+    u.overrides = u.overrides || {};
+    if(!confirm('把 ' + d + ' 设为请假？当天不增不减。')) return;
+    u.overrides[d] = 'leave';
+    markDirty(data.active); renderFlowers();
   };
 
   setInterval(renderToday, 60000);
