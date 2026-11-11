@@ -516,15 +516,24 @@
         return { uid, remote: j.data };
       }));
       let changed = false;
+      const needPush = [];
       results.forEach(res=>{
-        if(!res || !res.remote || !res.remote.settings) return;
+        if(!res) return;
+        if(!res.remote || !res.remote.settings){
+          if(data.users[res.uid].updatedAt) needPush.push(res.uid);
+          return;
+        }
         const local = data.users[res.uid];
-        if((res.remote.updatedAt || 0) > (local.updatedAt || 0)){
+        const rU = res.remote.updatedAt || 0, lU = local.updatedAt || 0;
+        if(rU > lU){
           data.users[res.uid] = res.remote;
           changed = true;
+        }else if(lU > rU){
+          needPush.push(res.uid);
         }
       });
       if(changed) save();
+      needPush.forEach(uid=>push(uid));
       syncOk = true;
     }catch(e){
       syncOk = false;
