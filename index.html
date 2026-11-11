@@ -134,6 +134,10 @@
   .modal .acts button{flex:1;border-radius:11px;padding:10px;border:1px solid var(--line);
     background:#262a39;color:var(--ink);font-size:13px;cursor:pointer}
   .modal .acts button.primary{background:var(--accent);border:0;color:#0d1020;font-weight:700}
+  .modal .del{width:100%;margin-top:10px;border:1px solid #4a2b3a;background:transparent;
+    color:#ff9db1;border-radius:11px;padding:10px;font-size:12.5px;cursor:pointer}
+  .edit-link{border:0;background:transparent;color:var(--muted);font-size:11px;
+    padding:2px 0 0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
   .empty{text-align:center;color:var(--muted);font-size:13px;padding:24px 0}
   @media (max-width:380px){.big{font-size:48px}.brand{font-size:13px}}
 </style>
@@ -248,15 +252,17 @@
 
 <div class="modal" id="modal">
   <div class="box">
-    <h3>添加打卡项</h3>
+    <h3 id="mTitle">添加打卡项</h3>
     <div class="row"><span>名称</span><input id="mName" placeholder="如：拉伸"></div>
     <div class="row"><span>图标</span><input id="mIcon" placeholder="如：🧘" maxlength="2"></div>
-    <div class="row"><span>每日目标</span><input id="mTarget" type="number" min="1" max="99" value="1"></div>
-    <div class="row"><span>单位</span><input id="mUnit" placeholder="次 / 杯 / 分钟" value="次"></div>
+    <div class="row" id="rowTarget"><span>每日目标</span><input id="mTarget" type="number" min="1" max="99" value="1"></div>
+    <div class="row" id="rowUnit"><span>单位</span><input id="mUnit" placeholder="次 / 杯 / 分钟" value="次"></div>
+    <div class="row" id="rowSince" hidden><span>计时起点</span><input id="mSince" type="datetime-local"></div>
     <div class="acts">
       <button id="mCancel">取消</button>
       <button class="primary" id="mOk">添加</button>
     </div>
+    <button class="del" id="mDelete" hidden>删除这个打卡项</button>
   </div>
 </div>
 
@@ -568,7 +574,8 @@
         el.className = 'timer-item';
         el.innerHTML =
           '<div class="top"><div class="icon">' + m.icon + '</div><div class="name">' + escapeHtml(m.name) + '</div>' +
-          '<div style="font-size:11.5px;color:var(--muted)">共 ' + e.totalHours + ' 小时</div></div>' +
+          '<button class="edit-link" data-edit="' + m.id + '">编辑</button>' +
+          '<div style="font-size:11.5px;color:var(--muted);margin-left:8px">共 ' + e.totalHours + ' 小时</div></div>' +
           '<div class="elapsed">' + e.days + ' 天 ' + e.hours + ' 小时<small>' + e.mins + ' 分</small></div>' +
           '<div class="acts"><button data-reset-timer="' + m.id + '">从此刻重新计时</button>' +
           '<button data-edit-timer="' + m.id + '">修改起点</button></div>';
@@ -583,6 +590,7 @@
         '<div class="icon">' + m.icon + '</div>' +
         '<div class="body"><div class="name">' + escapeHtml(m.name) + '</div>' +
         '<div class="meta">今日 ' + c + ' / ' + m.target + ' ' + escapeHtml(m.unit) + (c>=m.target?' · 已完成':'') + '</div>' +
+        '<button class="edit-link" data-edit="' + m.id + '">编辑</button>' +
         '<div class="mini-bar"><i style="width:' + pct + '%"></i></div></div>' +
         '<div class="counter"><button data-minus="' + m.id + '">−</button>' +
         '<span>' + c + '</span><button class="plus" data-plus="' + m.id + '">＋</button></div>';
@@ -593,6 +601,9 @@
     });
     list.querySelectorAll('[data-minus]').forEach(b=>{
       b.onclick = () => { const id=b.dataset.minus; log.checks[id]=Math.max(0,(log.checks[id]||0)-1); markDirty(data.active); renderCheck(); renderToday(); };
+    });
+    list.querySelectorAll('[data-edit]').forEach(b=>{
+      b.onclick = () => openEdit(u.modules.find(x=>x.id===b.dataset.edit));
     });
     list.querySelectorAll('[data-reset-timer]').forEach(b=>{
       b.onclick = () => {
@@ -681,21 +692,78 @@
     markDirty(data.active); renderToday();
   };
 
-  document.getElementById('addModule').onclick = () => {
+  let editingId = null;
+  const toLocalInput = iso => {
+    const d = new Date(iso);
+    return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+  };
+  function openAdd(){
+    editingId = null;
+    document.getElementById('mTitle').textContent = '添加打卡项';
     document.getElementById('mName').value = '';
     document.getElementById('mIcon').value = '';
     document.getElementById('mTarget').value = 1;
     document.getElementById('mUnit').value = '次';
+    document.getElementById('rowTarget').hidden = false;
+    document.getElementById('rowUnit').hidden = false;
+    document.getElementById('rowSince').hidden = true;
+    document.getElementById('mDelete').hidden = true;
+    document.getElementById('mOk').textContent = '添加';
     document.getElementById('modal').classList.add('show');
-  };
+  }
+  function openEdit(m){
+    if(!m) return;
+    editingId = m.id;
+    document.getElementById('mTitle').textContent = '编辑打卡项';
+    document.getElementById('mName').value = m.name || '';
+    document.getElementById('mIcon').value = m.icon || '';
+    const isTimer = m.type === 'timer';
+    document.getElementById('rowTarget').hidden = isTimer;
+    document.getElementById('rowUnit').hidden = isTimer;
+    document.getElementById('rowSince').hidden = !isTimer;
+    if(isTimer) document.getElementById('mSince').value = toLocalInput(m.since);
+    else {
+      document.getElementById('mTarget').value = m.target || 1;
+      document.getElementById('mUnit').value = m.unit || '次';
+    }
+    document.getElementById('mDelete').hidden = false;
+    document.getElementById('mOk').textContent = '保存';
+    document.getElementById('modal').classList.add('show');
+  }
+  document.getElementById('addModule').onclick = openAdd;
   document.getElementById('mCancel').onclick = () => document.getElementById('modal').classList.remove('show');
   document.getElementById('mOk').onclick = () => {
     const name = document.getElementById('mName').value.trim();
     if(!name) return;
     const icon = document.getElementById('mIcon').value.trim() || '⭐';
-    const target = Math.max(1, parseInt(document.getElementById('mTarget').value) || 1);
-    const unit = document.getElementById('mUnit').value.trim() || '次';
-    user().modules.push({ id:'m'+Date.now(), name, icon, target, unit, type:'count' });
+    if(editingId){
+      const m = user().modules.find(x=>x.id===editingId);
+      if(m){
+        m.name = name;
+        m.icon = icon;
+        if(m.type === 'timer'){
+          const v = document.getElementById('mSince').value;
+          if(v) m.since = new Date(v).toISOString();
+        }else{
+          m.target = Math.max(1, parseInt(document.getElementById('mTarget').value) || 1);
+          m.unit = document.getElementById('mUnit').value.trim() || '次';
+        }
+      }
+    }else{
+      const target = Math.max(1, parseInt(document.getElementById('mTarget').value) || 1);
+      const unit = document.getElementById('mUnit').value.trim() || '次';
+      user().modules.push({ id:'m'+Date.now(), name, icon, target, unit, type:'count' });
+    }
+    markDirty(data.active);
+    document.getElementById('modal').classList.remove('show');
+    renderCheck(); renderToday();
+  };
+  document.getElementById('mDelete').onclick = () => {
+    if(!editingId) return;
+    const m = user().modules.find(x=>x.id===editingId);
+    if(!m) return;
+    if(!confirm('删除「' + m.name + '」？历史记录会保留，只是不再显示。')) return;
+    user().modules = user().modules.filter(x=>x.id !== editingId);
     markDirty(data.active);
     document.getElementById('modal').classList.remove('show');
     renderCheck(); renderToday();
