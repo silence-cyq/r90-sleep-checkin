@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#12131a">
+<title>R90 睡眠打卡</title>
+<style>
+  :root{
+    --bg:#12131a; --bg2:#1a1c26; --card:#1f2230; --line:#2c3040;
+    --ink:#eef0f6; --muted:#9aa0b4; --accent:#7c9cff; --accent2:#a78bfa;
+    --ok:#4ade80; --warm:#fbbf24;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+  body{min-height:100vh;background:
+    radial-gradient(900px 500px at 80% -10%,rgba(124,156,255,.18),transparent 60%),
+    radial-gradient(700px 400px at -10% 20%,rgba(167,139,250,.14),transparent 60%),
+    var(--bg);}
+  .app{max-width:520px;margin:0 auto;padding:14px 16px 96px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 12px}
+  .brand{font-size:15px;font-weight:700;letter-spacing:.02em}
+  .brand span{color:var(--accent)}
+  .users{display:flex;background:#232636;border-radius:999px;padding:3px}
+  .users button{border:0;background:transparent;color:var(--muted);font-size:12.5px;
+    padding:5px 12px;border-radius:999px;cursor:pointer;font-weight:600}
+  .users button.on{background:var(--accent);color:#0d1020}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));
+    border:1px solid var(--line);border-radius:18px;padding:18px}
+  .hero{text-align:center;padding:22px 18px 18px}
+  .label{font-size:12.5px;color:var(--muted);letter-spacing:.08em}
+  .big{font-size:58px;font-weight:800;letter-spacing:-.02em;line-height:1.12;margin:6px 0 2px;
+    background:linear-gradient(135deg,#dfe6ff,#8fa8ff 55%,#a78bfa);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{font-size:13px;color:var(--muted)}
+  .sub b{color:var(--ink)}
+  .wake{margin-top:10px;font-size:13.5px;color:#cdd3e6}
+  .wake b{color:var(--ok)}
+  .actions{display:flex;gap:10px;margin-top:16px}
+  .actions button{flex:1;border:1px solid var(--line);background:#252a3a;color:var(--ink);
+    padding:11px 8px;border-radius:12px;font-size:13.5px;font-weight:600;cursor:pointer}
+  .actions button.primary{background:linear-gradient(135deg,#7c9cff,#a78bfa);border:0;color:#0d1020}
+  .actions button:disabled{opacity:.45;cursor:default}
+  .status{margin-top:10px;font-size:12px;color:var(--ok);min-height:16px}
+  .section-title{display:flex;align-items:center;justify-content:space-between;
+    margin:22px 2px 10px;font-size:13px;color:var(--muted);font-weight:600}
+  .progress-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:9px}
+  .progress-top b{color:var(--accent)}
+  .bar{height:8px;background:#262a39;border-radius:99px;overflow:hidden}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,#7c9cff,#a78bfa);border-radius:99px}
+  .tip{margin-top:10px;font-size:12.5px;color:var(--muted);line-height:1.6}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .mini{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .mini .t{font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between}
+  .mini .v{font-size:19px;font-weight:700;margin-top:4px}
+  .mini .v small{font-size:11.5px;color:var(--muted);font-weight:500;margin-left:3px}
+  .check-item{display:flex;align-items:center;gap:12px;background:var(--card);
+    border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin-bottom:10px}
+  .check-item .icon{font-size:22px;width:28px;text-align:center}
+  .check-item .body{flex:1;min-width:0}
+  .check-item .name{font-size:14px;font-weight:600}
+  .check-item .meta{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .check-item .mini-bar{height:5px;background:#262a39;border-radius:99px;margin-top:7px;overflow:hidden}
+  .check-item .mini-bar i{display:block;height:100%;background:var(--ok);border-radius:99px}
+  .counter{display:flex;align-items:center;gap:8px}
+  .counter button{width:30px;height:30px;border-radius:9px;border:1px solid var(--line);
+    background:#262a39;color:var(--ink);font-size:16px;line-height:1;cursor:pointer}
+  .counter button.plus{background:var(--accent);border:0;color:#0d1020;font-weight:700}
+  .counter span{min-width:28px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums}
+  .ghost{width:100%;border:1px dashed #3a3f55;background:transparent;color:var(--muted);
+    padding:12px;border-radius:13px;font-size:13px;cursor:pointer}
+  .plan-table{width:100%;border-collapse:collapse;font-size:13px}
+  .plan-table th{text-align:left;color:var(--muted);font-weight:600;font-size:11.5px;
+    padding:8px 6px;border-bottom:1px solid var(--line)}
+  .plan-table td{padding:9px 6px;border-bottom:1px solid #262a39;font-variant-numeric:tabular-nums}
+  .plan-table tr.today td{color:var(--accent);font-weight:700;background:rgba(124,156,255,.07)}
+  .plan-table tr.done td{color:#6f768c}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:12px 2px;border-bottom:1px solid #262a39;font-size:13.5px}
+  .row:last-child{border-bottom:0}
+  .row input,.row select{background:#242838;border:1px solid var(--line);color:var(--ink);
+    border-radius:9px;padding:7px 9px;font-size:13px;max-width:150px;width:100%;text-align:right}
+  .row input[type=date]{max-width:150px}
+  .save{width:100%;margin-top:16px;border:0;border-radius:13px;padding:13px;
+    background:linear-gradient(135deg,#7c9cff,#a78bfa);color:#0d1020;font-weight:700;font-size:14px;cursor:pointer}
+  .danger{width:100%;margin-top:10px;border:1px solid #4a2b3a;background:transparent;
+    color:#ff9db1;border-radius:13px;padding:11px;font-size:13px;cursor:pointer}
+  .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;
+    background:rgba(18,19,26,.92);backdrop-filter:blur(14px);border-top:1px solid var(--line);
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom))}
+  .tabbar .inner{max-width:520px;margin:0 auto;display:flex;justify-content:space-around}
+  .tabbar button{border:0;background:transparent;color:#767c92;font-size:11px;
+    display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 12px;cursor:pointer}
+  .tabbar button .ic{font-size:18px;line-height:1}
+  .tabbar button.on{color:var(--accent)}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;
+    justify-content:center;z-index:50;padding:20px}
+  .modal.show{display:flex}
+  .modal .box{background:#1c1f2b;border:1px solid var(--line);border-radius:16px;
+    padding:18px;width:100%;max-width:360px}
+  .modal h3{margin:0 0 12px;font-size:15px}
+  .modal .row{padding:9px 0}
+  .modal .row input{text-align:left}
+  .modal .acts{display:flex;gap:10px;margin-top:14px}
+  .modal .acts button{flex:1;border-radius:11px;padding:10px;border:1px solid var(--line);
+    background:#262a39;color:var(--ink);font-size:13px;cursor:pointer}
+  .modal .acts button.primary{background:var(--accent);border:0;color:#0d1020;font-weight:700}
+  .empty{text-align:center;color:var(--muted);font-size:13px;padding:26px 0}
+  @media (max-width:380px){.big{font-size:48px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">R90 <span>睡眠打卡</span></div>
+    <div class="users" id="userSwitch"></div>
+  </header>
+
+  <!-- 今日 -->
+  <section id="view-today">
+    <div class="card hero">
+      <div class="label" id="heroLabel">今晚入睡</div>
+      <div class="big" id="bedTime">--:--</div>
+      <div class="sub" id="countdown">—</div>
+      <div class="wake">起床 <b id="wakeTime">--:--</b> · <span id="cycleText">—</span></div>
+      <div class="actions">
+        <button id="btnSleep">我要睡了</button>
+        <button id="btnWake">我起床了</button>
+      </div>
+      <div class="status" id="sleepStatus"></div>
+    </div>
+
+    <div class="section-title"><span>调整进度</span><span id="planDayText"></span></div>
+    <div class="card">
+      <div class="progress-top"><span id="progressFrom">03:30</span><b id="progressPct">0%</b><span id="progressTo">22:00</span></div>
+      <div class="bar"><i id="progressBar" style="width:0%"></i></div>
+      <div class="tip" id="phaseTip"></div>
+    </div>
+
+    <div class="section-title"><span>今日打卡</span><span id="todayDone"></span></div>
+    <div class="grid" id="todayModules"></div>
+  </section>
+
+  <!-- 计划 -->
+  <section id="view-plan" hidden>
+    <div class="section-title"><span>渐进调整计划</span><span id="planRange"></span></div>
+    <div class="card" style="padding:6px 14px 10px">
+      <table class="plan-table">
+        <thead><tr><th>日期</th><th>入睡</th><th>起床</th><th>周期</th><th>进度</th></tr></thead>
+        <tbody id="planBody"></tbody>
+      </table>
+    </div>
+    <div class="tip" style="padding:10px 4px">
+      每 <b id="stepDaysText">2</b> 天提前 <b id="stepMinText">30</b> 分钟，直到目标入睡时间。起床时间 = 入睡 + 缓冲 + 周期数 × 90 分钟，保证醒来在周期末。
+    </div>
+  </section>
+
+  <!-- 打卡 -->
+  <section id="view-check" hidden>
+    <div class="section-title"><span>打卡项</span><span id="streakText"></span></div>
+    <div id="checkList"></div>
+    <button class="ghost" id="addModule">＋ 添加打卡项</button>
+    <div class="tip" style="padding:12px 4px">每天 0 点自动重置。连续打卡按“当天至少完成一项”计算。</div>
+  </section>
+
+  <!-- 设置 -->
+  <section id="view-set" hidden>
+    <div class="section-title"><span>作息设置</span><span id="setUser"></span></div>
+    <div class="card">
+      <div class="row"><span>称呼</span><input id="inName" maxlength="8"></div>
+      <div class="row"><span>目标入睡</span><input id="inTarget" type="time"></div>
+      <div class="row"><span>起始入睡</span><input id="inStartBed" type="time"></div>
+      <div class="row"><span>每轮周期</span>
+        <select id="inCycles">
+          <option value="4">4 个（6 小时）</option>
+          <option value="5">5 个（7.5 小时）</option>
+          <option value="6">6 个（9 小时）</option>
+        </select>
+      </div>
+      <div class="row"><span>入睡缓冲（分钟）</span><input id="inBuffer" type="number" min="0" max="60" step="5"></div>
+      <div class="row"><span>每次提前（分钟）</span><input id="inStep" type="number" min="10" max="60" step="5"></div>
+      <div class="row"><span>间隔天数</span><input id="inStepDays" type="number" min="1" max="7" step="1"></div>
+      <div class="row"><span>开始日期</span><input id="inStartDate" type="date"></div>
+      <button class="save" id="btnSave">保存设置</button>
+      <button class="danger" id="btnReset">清空我的打卡记录</button>
+    </div>
+    <div class="tip" style="padding:12px 4px">
+      调整建议：白天多晒太阳、睡前 2 小时不碰强光；按计划入睡前 30 分钟关掉大屏。
+    </div>
+  </section>
+
+  <nav class="tabbar">
+    <div class="inner">
+      <button data-view="today" class="on"><span class="ic">🌙</span>今日</button>
+      <button data-view="plan"><span class="ic">📅</span>计划</button>
+      <button data-view="check"><span class="ic">✅</span>打卡</button>
+      <button data-view="set"><span class="ic">⚙️</span>设置</button>
+    </div>
+  </nav>
+</div>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <h3>添加打卡项</h3>
+    <div class="row"><span>名称</span><input id="mName" placeholder="如：拉伸"></div>
+    <div class="row"><span>图标</span><input id="mIcon" placeholder="如：🧘" maxlength="2"></div>
+    <div class="row"><span>每日目标</span><input id="mTarget" type="number" min="1" max="99" value="1"></div>
+    <div class="row"><span>单位</span><input id="mUnit" placeholder="次 / 杯 / 分钟" value="次"></div>
+    <div class="acts">
+      <button id="mCancel">取消</button>
+      <button class="primary" id="mOk">添加</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const KEY = 'r90_checkin_v1';
+  const DAY = 86400000;
+
+  const pad = n => String(n).padStart(2,'0');
+  const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+  const toTime = m => { m = ((m % 1440) + 1440) % 1440; return pad(Math.floor(m/60))+':'+pad(m%60); };
+  const todayStr = () => { const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+  const parseDate = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+  const diffDays = (a,b) => Math.round((parseDate(b) - parseDate(a)) / DAY);
+  const addDays = (s,n) => { const d = parseDate(s); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+  const weekday = s => ['周日','周一','周二','周三','周四','周五','周六'][parseDate(s).getDay()];
+
+  function defaultSettings(){
+    return { targetBed:'22:00', startBed:'03:30', cycles:5, buffer:15, stepMin:30, stepDays:2, startDate: todayStr() };
+  }
+  function defaultModules(){
+    return [
+      { id:'water', name:'喝水', icon:'💧', target:8, unit:'杯' },
+      { id:'read', name:'读书', icon:'📖', target:1, unit:'次' },
+      { id:'sun', name:'晒太阳', icon:'☀️', target:1, unit:'次' },
+      { id:'nophone', name:'睡前不刷手机', icon:'📵', target:1, unit:'次' }
+    ];
+  }
+  function defaultData(){
+    return {
+      active:'a',
+      users:{
+        a:{ name:'我', settings:defaultSettings(), modules:defaultModules(), logs:{} },
+        b:{ name:'TA', settings:defaultSettings(), modules:defaultModules(), logs:{} }
+      }
+    };
+  }
+
+  let data, memoryOnly = false;
+  try{
+    const raw = localStorage.getItem(KEY);
+    data = raw ? JSON.parse(raw) : defaultData();
+    if(!data.users || !data.users.a) data = defaultData();
+  }catch(e){ memoryOnly = true; data = defaultData(); }
+
+  const save = () => { if(memoryOnly) return; try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){ memoryOnly = true; } };
+  const user = () => data.users[data.active];
+  const today = () => todayStr();
+  const todayLog = () => {
+    const u = user(), d = today();
+    if(!u.logs[d]) u.logs[d] = { checks:{}, sleep:null };
+    if(!u.logs[d].checks) u.logs[d].checks = {};
+    return u.logs[d];
+  };
+
+  function totalShift(s){ return ((toMin(s.startBed) - toMin(s.targetBed)) + 1440) % 1440; }
+  function totalDays(s){
+    const shift = totalShift(s);
+    if(shift === 0) return 1;
+    return Math.ceil(shift / s.stepMin) * s.stepDays;
+  }
+  function planFor(dayIdx, s){
+    const shiftTotal = totalShift(s);
+    const shift = Math.min(shiftTotal, Math.floor(dayIdx / s.stepDays) * s.stepMin);
+    const bed = toMin(s.startBed) - shift;
+    const wake = bed + s.buffer + s.cycles * 90;
+    return { bed: ((bed%1440)+1440)%1440, wake: ((wake%1440)+1440)%1440, cycles:s.cycles, done: shift >= shiftTotal };
+  }
+  function currentDayIdx(){
+    const s = user().settings;
+    const idx = diffDays(s.startDate, today());
+    return Math.max(0, Math.min(idx, totalDays(s)));
+  }
+
+  function renderUsers(){
+    const box = document.getElementById('userSwitch');
+    box.innerHTML = '';
+    ['a','b'].forEach(id=>{
+      const b = document.createElement('button');
+      b.textContent = data.users[id].name || (id==='a'?'我':'TA');
+      b.className = data.active === id ? 'on' : '';
+      b.onclick = () => { data.active = id; save(); renderAll(); };
+      box.appendChild(b);
+    });
+  }
+
+  function renderToday(){
+    const s = user().settings;
+    const idx = currentDayIdx();
+    const p = planFor(idx, s);
+    const bed = toTime(p.bed), wake = toTime(p.wake);
+
+    document.getElementById('bedTime').textContent = bed;
+    document.getElementById('wakeTime').textContent = wake;
+    document.getElementById('cycleText').textContent = s.cycles + ' 个周期 · ' + (s.cycles*1.5) + ' 小时';
+
+    const log = todayLog();
+    if(log.sleep && log.sleep.bed){
+      document.getElementById('heroLabel').textContent = '今晚已记录入睡';
+      document.getElementById('btnSleep').disabled = true;
+      document.getElementById('btnWake').disabled = !!log.sleep.wake;
+      document.getElementById('sleepStatus').textContent =
+        '入睡 ' + log.sleep.bed + (log.sleep.wake ? ' · 起床 ' + log.sleep.wake + ' · 完成 ' + log.sleep.cycles + ' 个周期' : '');
+    }else{
+      document.getElementById('heroLabel').textContent = '今晚入睡';
+      document.getElementById('btnSleep').disabled = false;
+      document.getElementById('btnWake').disabled = true;
+      document.getElementById('sleepStatus').textContent = '';
+    }
+
+    // 倒计时
+    const now = new Date();
+    const nowMin = now.getHours()*60 + now.getMinutes();
+    let delta = p.bed - nowMin;
+    if(delta < -60) delta += 1440;
+    const cd = document.getElementById('countdown');
+    if(log.sleep && log.sleep.bed){
+      cd.innerHTML = '按计划睡觉，明天 <b>' + wake + '</b> 起床';
+    }else if(delta <= 0){
+      cd.innerHTML = '已到计划入睡时间，放下手机吧';
+    }else{
+      cd.innerHTML = '距入睡还有 <b>' + Math.floor(delta/60) + '</b> 小时 <b>' + (delta%60) + '</b> 分';
+    }
+
+    // 进度
+    const tDays = totalDays(s);
+    const pct = Math.min(100, Math.round((diffDays(s.startDate, today()) / Math.max(1,tDays)) * 100));
+    document.getElementById('progressFrom').textContent = s.startBed;
+    document.getElementById('progressTo').textContent = s.targetBed;
+    document.getElementById('progressPct').textContent = pct + '%';
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('planDayText').textContent = '第 ' + (Math.min(diffDays(s.startDate, today())+1, tDays)) + ' / ' + tDays + ' 天';
+
+    let tip;
+    if(idx <= 0) tip = '刚开始：先把起床时间固定住，今晚按计划点“我要睡了”，明早按时起。';
+    else if(idx < tDays*0.4) tip = '前半程：每天提前一点点，白天多晒太阳，晚上少看强光，身体会跟得更快。';
+    else if(idx < tDays*0.8) tip = '中段：最容易反复，别补觉太久，午睡控制在 20 分钟内。';
+    else if(idx < tDays) tip = '收尾：快到目标了，重点是把 22:00 固定成习惯，周末也别推迟超过 1 小时。';
+    else tip = '已到目标作息：保持 22:00 入睡，按周期起床，别轻易打乱。';
+    document.getElementById('phaseTip').textContent = tip;
+
+    // 今日打卡小卡
+    const grid = document.getElementById('todayModules');
+    grid.innerHTML = '';
+    let doneCount = 0;
+    user().modules.forEach(m=>{
+      const c = log.checks[m.id] || 0;
+      if(c >= m.target) doneCount++;
+      const div = document.createElement('div');
+      div.className = 'mini';
+      div.innerHTML = '<div class="t"><span>' + m.icon + ' ' + m.name + '</span><span>' + c + '/' + m.target + '</span></div>' +
+        '<div class="v">' + c + '<small>' + m.unit + '</small></div>';
+      grid.appendChild(div);
+    });
+    document.getElementById('todayDone').textContent = doneCount + ' / ' + user().modules.length + ' 完成';
+  }
+
+  function renderPlan(){
+    const s = user().settings;
+    const tDays = totalDays(s);
+    const body = document.getElementById('planBody');
+    body.innerHTML = '';
+    const cur = diffDays(s.startDate, today());
+    for(let i=0;i<=tDays;i++){
+      const p = planFor(i, s);
+      const d = addDays(s.startDate, i);
+      const tr = document.createElement('tr');
+      if(i === cur) tr.className = 'today';
+      else if(i < cur) tr.className = 'done';
+      tr.innerHTML = '<td>' + d.slice(5) + ' ' + weekday(d) + '</td>' +
+        '<td>' + toTime(p.bed) + '</td><td>' + toTime(p.wake) + '</td>' +
+        '<td>' + p.cycles + '</td><td>' + (p.done ? '达标' : '') + '</td>';
+      body.appendChild(tr);
+    }
+    document.getElementById('planRange').textContent = s.startBed + ' → ' + s.targetBed;
+    document.getElementById('stepDaysText').textContent = s.stepDays;
+    document.getElementById('stepMinText').textContent = s.stepMin;
+  }
+
+  function renderCheck(){
+    const u = user(), log = todayLog();
+    const list = document.getElementById('checkList');
+    list.innerHTML = '';
+    if(!u.modules.length){
+      list.innerHTML = '<div class="empty">还没有打卡项，点下面添加一个</div>';
+    }
+    u.modules.forEach(m=>{
+      const c = log.checks[m.id] || 0;
+      const pct = Math.min(100, Math.round(c / m.target * 100));
+      const el = document.createElement('div');
+      el.className = 'check-item';
+      el.innerHTML =
+        '<div class="icon">' + m.icon + '</div>' +
+        '<div class="body"><div class="name">' + m.name + '</div>' +
+        '<div class="meta">今日 ' + c + ' / ' + m.target + ' ' + m.unit + (c>=m.target?' · 已完成':'') + '</div>' +
+        '<div class="mini-bar"><i style="width:' + pct + '%"></i></div></div>' +
+        '<div class="counter"><button data-minus="' + m.id + '">−</button>' +
+        '<span>' + c + '</span><button class="plus" data-plus="' + m.id + '">＋</button></div>';
+      list.appendChild(el);
+    });
+    list.querySelectorAll('[data-plus]').forEach(b=>{
+      b.onclick = () => { const id=b.dataset.plus; log.checks[id]=(log.checks[id]||0)+1; save(); renderCheck(); renderToday(); };
+    });
+    list.querySelectorAll('[data-minus]').forEach(b=>{
+      b.onclick = () => { const id=b.dataset.minus; log.checks[id]=Math.max(0,(log.checks[id]||0)-1); save(); renderCheck(); renderToday(); };
+    });
+
+    // 连续打卡
+    let streak = 0, d = today();
+    for(let i=0;i<400;i++){
+      const lg = u.logs[d];
+      const has = lg && lg.checks && Object.keys(lg.checks).some(k=>lg.checks[k] > 0);
+      if(has) streak++;
+      else if(i>0) break;
+      d = addDays(d,-1);
+    }
+    document.getElementById('streakText').textContent = '连续 ' + streak + ' 天';
+  }
+
+  function renderSet(){
+    const s = user().settings;
+    document.getElementById('setUser').textContent = user().name;
+    document.getElementById('inName').value = user().name;
+    document.getElementById('inTarget').value = s.targetBed;
+    document.getElementById('inStartBed').value = s.startBed;
+    document.getElementById('inCycles').value = s.cycles;
+    document.getElementById('inBuffer').value = s.buffer;
+    document.getElementById('inStep').value = s.stepMin;
+    document.getElementById('inStepDays').value = s.stepDays;
+    document.getElementById('inStartDate').value = s.startDate;
+  }
+
+  function renderAll(){ renderUsers(); renderToday(); renderPlan(); renderCheck(); renderSet(); }
+
+  // 事件
+  document.querySelectorAll('.tabbar button').forEach(b=>{
+    b.onclick = () => {
+      document.querySelectorAll('.tabbar button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      ['today','plan','check','set'].forEach(v=>{
+        document.getElementById('view-'+v).hidden = (v !== b.dataset.view);
+      });
+      window.scrollTo({top:0,behavior:'smooth'});
+    };
+  });
+
+  document.getElementById('btnSleep').onclick = () => {
+    const now = new Date();
+    const log = todayLog();
+    log.sleep = { bed: pad(now.getHours())+':'+pad(now.getMinutes()), wake:null, cycles:0 };
+    save(); renderToday();
+  };
+  document.getElementById('btnWake').onclick = () => {
+    const now = new Date();
+    const log = todayLog();
+    if(!log.sleep) return;
+    const wake = pad(now.getHours())+':'+pad(now.getMinutes());
+    let dur = toMin(wake) - toMin(log.sleep.bed);
+    if(dur < 0) dur += 1440;
+    const buffered = Math.max(0, dur - user().settings.buffer);
+    log.sleep.wake = wake;
+    log.sleep.cycles = Math.floor(buffered / 90);
+    save(); renderToday();
+  };
+
+  document.getElementById('addModule').onclick = () => {
+    document.getElementById('mName').value = '';
+    document.getElementById('mIcon').value = '';
+    document.getElementById('mTarget').value = 1;
+    document.getElementById('mUnit').value = '次';
+    document.getElementById('modal').classList.add('show');
+  };
+  document.getElementById('mCancel').onclick = () => document.getElementById('modal').classList.remove('show');
+  document.getElementById('mOk').onclick = () => {
+    const name = document.getElementById('mName').value.trim();
+    if(!name) return;
+    const icon = document.getElementById('mIcon').value.trim() || '⭐';
+    const target = Math.max(1, parseInt(document.getElementById('mTarget').value) || 1);
+    const unit = document.getElementById('mUnit').value.trim() || '次';
+    user().modules.push({ id:'m'+Date.now(), name, icon, target, unit });
+    save();
+    document.getElementById('modal').classList.remove('show');
+    renderCheck(); renderToday();
+  };
+
+  document.getElementById('btnSave').onclick = () => {
+    const s = user().settings;
+    s.targetBed = document.getElementById('inTarget').value || '22:00';
+    s.startBed = document.getElementById('inStartBed').value || '03:30';
+    s.cycles = parseInt(document.getElementById('inCycles').value) || 5;
+    s.buffer = Math.max(0, parseInt(document.getElementById('inBuffer').value) || 15);
+    s.stepMin = Math.max(10, parseInt(document.getElementById('inStep').value) || 30);
+    s.stepDays = Math.max(1, parseInt(document.getElementById('inStepDays').value) || 2);
+    s.startDate = document.getElementById('inStartDate').value || todayStr();
+    user().name = document.getElementById('inName').value.trim() || (data.active==='a'?'我':'TA');
+    save(); renderAll();
+    alert('已保存');
+  };
+
+  document.getElementById('btnReset').onclick = () => {
+    if(!confirm('清空 ' + user().name + ' 的全部打卡和睡眠记录？')) return;
+    user().logs = {};
+    save(); renderAll();
+  };
+
+  // 每分钟刷新倒计时
+  setInterval(renderToday, 60000);
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
