@@ -287,7 +287,7 @@
   const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function defaultSettings(){
-    return { targetBed:'22:00', startBed:'03:30', cycles:5, buffer:15, stepMin:30, stepDays:2, startDate: todayStr() };
+    return { targetBed:'22:00', startBed:'03:30', cycles:5, buffer:15, stepMin:30, stepDays:2, startDate: todayStr(), boost:0 };
   }
   function baseModules(){
     return [
@@ -331,6 +331,25 @@
     if(!u.logs[d].checks) u.logs[d].checks = {};
     return u.logs[d];
   };
+  function logAt(key){
+    const u = user();
+    if(!u.logs[key]) u.logs[key] = { checks:{}, sleep:null };
+    if(!u.logs[key].checks) u.logs[key].checks = {};
+    return u.logs[key];
+  }
+  // 当前这一次睡眠：优先今天，其次昨晚未记录起床的那次
+  function currentSleepEntry(){
+    const u = user(), t = today(), y = addDays(t,-1);
+    if(u.logs[t] && u.logs[t].sleep && u.logs[t].sleep.bed) return { key:t, s:u.logs[t].sleep };
+    if(u.logs[y] && u.logs[y].sleep && u.logs[y].sleep.bed && !u.logs[y].sleep.wake) return { key:y, s:u.logs[y].sleep };
+    return null;
+  }
+  function currentOpenSleep(){
+    const u = user(), t = today(), y = addDays(t,-1);
+    if(u.logs[t] && u.logs[t].sleep && u.logs[t].sleep.bed && !u.logs[t].sleep.wake) return { key:t, s:u.logs[t].sleep };
+    if(u.logs[y] && u.logs[y].sleep && u.logs[y].sleep.bed && !u.logs[y].sleep.wake) return { key:y, s:u.logs[y].sleep };
+    return null;
+  }
 
   function totalShift(s){ return ((toMin(s.startBed) - toMin(s.targetBed)) + 1440) % 1440; }
   function totalDays(s){
@@ -340,10 +359,20 @@
   }
   function planFor(dayIdx, s){
     const shiftTotal = totalShift(s);
-    const shift = Math.min(shiftTotal, Math.floor(dayIdx / s.stepDays) * s.stepMin);
+    const shift = Math.min(shiftTotal, Math.floor(dayIdx / s.stepDays) * s.stepMin + (s.boost || 0));
     const bed = toMin(s.startBed) - shift;
     const wake = bed + s.buffer + s.cycles * 90;
     return { bed: ((bed%1440)+1440)%1440, wake: ((wake%1440)+1440)%1440, cycles:s.cycles, done: shift >= shiftTotal };
+  }
+  // 把“晚上/凌晨”统一成可比较的分钟数：18:00=1080，02:00=1560
+  function nightMin(t){
+    const m = typeof t === 'number' ? t : toMin(t);
+    return m < 720 ? m + 1440 : m;
+  }
+  function fmtDiff(min){
+    const a = Math.abs(min);
+    if(a < 60) return a + ' 分钟';
+    return Math.floor(a/60) + ' 小时 ' + (a%60 ? (a%60) + ' 分' : '');
   }
   function currentDayIdx(){
     const s = user().settings;
@@ -427,33 +456,46 @@
     const s = user().settings;
     const idx = currentDayIdx();
     const p = planFor(idx, s);
-    const bed = toTime(p.bed), wake = toTime(p.wake);
+    const entry = currentOpenSleep();
+    const last = currentSleepEntry();
+    const sl = entry ? entry.s : null;
+    const hasSleep = !!sl;
+    const bed = hasSleep ? sl.bed : toTime(p.bed);
+    const wake = hasSleep && sl.wakeTarget ? sl.wakeTarget : toTime(p.wake);
 
     document.getElementById('bedTime').textContent = bed;
     document.getElementById('wakeTime').textContent = wake;
     document.getElementById('cycleText').textContent = s.cycles + ' 个周期 · ' + (s.cycles*1.5) + ' 小时';
 
-    const log = todayLog();
-    if(log.sleep && log.sleep.bed){
-      document.getElementById('heroLabel').textContent = '今晚已记录入睡';
+    if(hasSleep){
+      document.getElementById('heroLabel').textContent = sl.bedOk ? (entry.key === today() ? '已入睡 · 达标' : '昨晚入睡 · 达标') : '已入睡 · 晚于计划';
       document.getElementById('btnSleep').disabled = true;
-      document.getElementById('btnWake').disabled = !!log.sleep.wake;
-      document.getElementById('sleepStatus').textContent =
-        '入睡 ' + log.sleep.bed + (log.sleep.wake ? ' · 起床 ' + log.sleep.wake + ' · 完成 ' + log.sleep.cycles + ' 个周期' : '');
+      document.getElementById('btnWake').disabled = false;
     }else{
       document.getElementById('heroLabel').textContent = '今晚入睡';
       document.getElementById('btnSleep').disabled = false;
       document.getElementById('btnWake').disabled = true;
-      document.getElementById('sleepStatus').textContent = '';
     }
+
+    let st = '';
+    if(last){
+      const ls = last.s;
+      st = (last.key === today() ? '本次' : '昨晚') + '入睡 ' + ls.bed + (ls.bedOk ? ' ✅' : ' ❌');
+      if(ls.plannedBed){
+        const d = nightMin(ls.bed) - nightMin(ls.plannedBed);
+        st += d <= 0 ? '（早 ' + fmtDiff(d) + '）' : '（晚 ' + fmtDiff(d) + '）';
+      }
+      if(ls.wake) st += ' · 起床 ' + ls.wake + (ls.wakeOk ? ' ✅' : ' ❌') + ' · ' + ls.cycles + ' 个周期';
+    }
+    document.getElementById('sleepStatus').textContent = st;
 
     const now = new Date();
     const nowMin = now.getHours()*60 + now.getMinutes();
     let delta = p.bed - nowMin;
     if(delta < -60) delta += 1440;
     const cd = document.getElementById('countdown');
-    if(log.sleep && log.sleep.bed){
-      cd.innerHTML = '按计划睡觉，明天 <b>' + wake + '</b> 起床';
+    if(hasSleep){
+      cd.innerHTML = sl.wake ? '本次睡眠已完成' : '已按实际入睡时间重排，计划 <b>' + wake + '</b> 起床';
     }else if(delta <= 0){
       cd.innerHTML = '已到计划入睡时间，放下手机吧';
     }else{
@@ -461,12 +503,12 @@
     }
 
     const tDays = totalDays(s);
-    const pct = Math.min(100, Math.round((diffDays(s.startDate, today()) / Math.max(1,tDays)) * 100));
+    const pct = Math.min(100, Math.round((p.done ? 1 : (Math.floor(idx/s.stepDays)*s.stepMin + (s.boost||0)) / Math.max(1,totalShift(s))) * 100));
     document.getElementById('progressFrom').textContent = s.startBed;
     document.getElementById('progressTo').textContent = s.targetBed;
     document.getElementById('progressPct').textContent = pct + '%';
     document.getElementById('progressBar').style.width = pct + '%';
-    document.getElementById('planDayText').textContent = '第 ' + (Math.min(diffDays(s.startDate, today())+1, tDays)) + ' / ' + tDays + ' 天';
+    document.getElementById('planDayText').textContent = '第 ' + (Math.min(diffDays(s.startDate, today())+1, tDays)) + ' / ' + tDays + ' 天' + ((s.boost||0) > 0 ? ' · 已提前 ' + (s.boost) + ' 分钟' : '');
 
     let tip;
     if(idx <= 0) tip = '刚开始：先把起床时间固定住，今晚按计划点“我要睡了”，明早按时起。';
@@ -481,6 +523,7 @@
     const grid = document.getElementById('todayModules');
     grid.innerHTML = '';
     let doneCount = 0;
+    const tlog = todayLog();
     user().modules.forEach(m=>{
       if(m.type === 'timer'){
         const e = elapsedSince(m.since);
@@ -492,7 +535,7 @@
         grid.appendChild(div);
         return;
       }
-      const c = log.checks[m.id] || 0;
+      const c = tlog.checks[m.id] || 0;
       if(c >= m.target) doneCount++;
       const div = document.createElement('div');
       div.className = 'mini';
@@ -521,6 +564,7 @@
     const oidx = Math.max(0, Math.min(diffDays(os.startDate, today()), totalDays(os)));
     const op = planFor(oidx, os);
     const olog = ou.logs[today()] || {checks:{}};
+    const ylog = ou.logs[addDays(today(),-1)] || {};
     const total = ou.modules.filter(m=>m.type!=='timer').length;
     const done = ou.modules.filter(m=>m.type!=='timer' && (olog.checks||{})[m.id] >= m.target).length;
     let streak = 0, d = today();
@@ -530,10 +574,27 @@
       else if(i>0) break;
       d = addDays(d,-1);
     }
+    const y = ylog.sleep;
+    let yTxt;
+    if(y && y.bed){
+      yTxt = '昨日入睡 <b>' + y.bed + '</b> ' + (y.bedOk ? '✅' : '❌') +
+        (y.wake ? ' · 起床 <b>' + y.wake + '</b> ' + (y.wakeOk ? '✅' : '❌') : '');
+    }else{
+      yTxt = '昨日未记录入睡';
+    }
+    const t = (olog.sleep && olog.sleep.wake) ? olog.sleep : ((ylog.sleep && ylog.sleep.wake) ? ylog.sleep : null);
+    const tOpen = olog.sleep && olog.sleep.bed && !olog.sleep.wake ? olog.sleep : null;
+    let tTxt;
+    if(t){
+      tTxt = '今日起床 <b>' + t.wake + '</b> ' + (t.wakeOk ? '✅' : '❌');
+    }else if(tOpen){
+      tTxt = '今日已入睡 <b>' + tOpen.bed + '</b> ' + (tOpen.bedOk ? '✅' : '❌') + ' · 待起床';
+    }else{
+      tTxt = '今日未起床打卡';
+    }
     lineEl.innerHTML =
-      '今晚 <b>' + toTime(op.bed) + '</b> 睡 · <b>' + toTime(op.wake) + '</b> 起<br>' +
-      '今日打卡 ' + done + '/' + total + ' · 连续 ' + streak + ' 天' +
-      (olog.sleep && olog.sleep.bed ? ' · 已入睡' : '');
+      yTxt + '<br>' + tTxt + ' · 打卡 ' + done + '/' + total + ' · 连续 ' + streak + ' 天' +
+      '<br>计划 ' + toTime(op.bed) + ' 睡 · ' + toTime(op.wake) + ' 起';
     upEl.textContent = ou.updatedAt ? '更新于 ' + new Date(ou.updatedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '';
   }
 
@@ -676,19 +737,33 @@
   document.getElementById('btnSleep').onclick = () => {
     const now = new Date();
     const log = todayLog();
-    log.sleep = { bed: pad(now.getHours())+':'+pad(now.getMinutes()), wake:null, cycles:0 };
+    const s = user().settings;
+    const p = planFor(currentDayIdx(), s);
+    const plannedBed = toTime(p.bed);
+    const plannedWake = toTime(p.wake);
+    const bed = pad(now.getHours())+':'+pad(now.getMinutes());
+    const bedOk = nightMin(bed) <= nightMin(plannedBed);
+    const early = nightMin(plannedBed) - nightMin(bed);
+    if(bedOk && early > 5){
+      s.boost = Math.min(totalShift(s), (s.boost || 0) + early);
+    }
+    const wakeTarget = toTime(toMin(bed) + s.buffer + s.cycles * 90);
+    log.sleep = { bed, plannedBed, bedOk, wake:null, wakeOk:null, cycles:0, wakeTarget, plannedWake };
     markDirty(data.active); renderToday();
   };
   document.getElementById('btnWake').onclick = () => {
     const now = new Date();
-    const log = todayLog();
-    if(!log.sleep) return;
+    const entry = currentOpenSleep();
+    if(!entry) return;
+    const log = logAt(entry.key);
     const wake = pad(now.getHours())+':'+pad(now.getMinutes());
     let dur = toMin(wake) - toMin(log.sleep.bed);
     if(dur < 0) dur += 1440;
     const buffered = Math.max(0, dur - user().settings.buffer);
     log.sleep.wake = wake;
     log.sleep.cycles = Math.floor(buffered / 90);
+    const target = log.sleep.wakeTarget || log.sleep.plannedWake;
+    log.sleep.wakeOk = target ? (nightMin(wake) <= nightMin(target)) : null;
     markDirty(data.active); renderToday();
   };
 
@@ -779,12 +854,14 @@
 
   document.getElementById('btnSave').onclick = () => {
     const s = user().settings;
+    const oldTarget = s.targetBed, oldStart = s.startBed, oldCycles = s.cycles;
     s.targetBed = document.getElementById('inTarget').value || '22:00';
     s.startBed = document.getElementById('inStartBed').value || '03:30';
     s.cycles = parseInt(document.getElementById('inCycles').value) || 5;
     s.buffer = Math.max(0, parseInt(document.getElementById('inBuffer').value) || 15);
     s.startDate = document.getElementById('inStartDate').value || todayStr();
     user().name = document.getElementById('inName').value.trim() || user().name;
+    if(oldTarget !== s.targetBed || oldStart !== s.startBed || oldCycles !== s.cycles) s.boost = 0;
     markDirty(data.active); renderAll();
     alert('已保存');
   };
