@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>R90 睡眠打卡 · 使用说明</title>
+<style>
+  :root{
+    --ink:#1b1a19; --muted:#6d6761; --line:#e5dfd7; --bg:#fbf9f6; --card:#fff;
+    --accent:#a2412a; --pink:#c2456f; --green:#2f6b45; --amber:#8a5a12; --blue:#33526f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB",system-ui,sans-serif;
+    line-height:1.8;font-size:15px}
+  .wrap{max-width:820px;margin:0 auto;padding:52px 40px 80px}
+  header{border-bottom:2px solid var(--ink);padding-bottom:22px;margin-bottom:26px}
+  .kicker{font-size:11.5px;letter-spacing:.24em;color:var(--accent);font-weight:600}
+  h1{font-size:30px;line-height:1.32;margin:10px 0 10px;font-weight:700}
+  .sub{font-size:14px;color:#4a4540}
+  .meta{font-size:12.5px;color:var(--muted);margin-top:10px}
+  nav{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 4px}
+  nav a{font-size:12.5px;padding:4px 10px;border:1px solid var(--line);border-radius:20px;
+    background:#fff;color:#5b3427;text-decoration:none}
+  nav a:hover{background:#f7ece7}
+  h2{font-size:19px;margin:42px 0 10px;padding-left:12px;border-left:4px solid var(--accent);line-height:1.4}
+  h3{font-size:14.5px;margin:22px 0 6px;color:var(--accent)}
+  p{margin:9px 0}
+  ul,ol{padding-left:20px;margin:8px 0}
+  li{margin:5px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;background:var(--card)}
+  th{text-align:left;background:#f3eee7;font-weight:600;padding:9px;border:1px solid var(--line);font-size:12.5px}
+  td{padding:9px;border:1px solid var(--line);vertical-align:top}
+  tbody tr:nth-child(even){background:#fdfbf9}
+  a{color:#7c3a22}
+  .note{background:#fff;border:1px solid var(--line);border-left:3px solid var(--accent);
+    padding:13px 17px;margin:16px 0;font-size:13.5px;color:#3f3a36}
+  .rule{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 17px;margin:14px 0;font-size:13.8px}
+  .rule b{color:var(--pink)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+  .cell{background:var(--card);border:1px solid var(--line);padding:13px 15px;font-size:13.3px}
+  .cell .h{font-weight:600;color:var(--accent);margin-bottom:4px;font-size:13px}
+  .step{display:flex;gap:10px;margin:10px 0;font-size:13.8px}
+  .step i{flex:none;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;
+    font-style:normal;font-size:12px;display:grid;place-items:center;margin-top:3px}
+  footer{margin-top:52px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted)}
+  @media print{body{background:#fff}.wrap{padding:0 12mm}table,tr,td{page-break-inside:avoid}}
+  @media (max-width:720px){.wrap{padding:30px 20px}.grid{grid-template-columns:1fr}h1{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">R 9 0 睡 眠 打 卡 · 使 用 说 明</div>
+  <h1>从凌晨 3:30 到晚上 10:00，<br>用 22 天把作息挪回来</h1>
+  <div class="sub">给彦冬和小金的一份简单说明</div>
+  <div class="meta">打开地址：https://silence-cyq.github.io/r90-sleep-checkin/ ｜ 更新日期：2026-11-11</div>
+</header>
+
+<nav>
+  <a href="#s1">1 这是什么</a>
+  <a href="#s2">2 怎么打开</a>
+  <a href="#s3">3 睡觉打卡</a>
+  <a href="#s4">4 睡眠计划</a>
+  <a href="#s5">5 打卡项</a>
+  <a href="#s6">6 小红花</a>
+  <a href="#s7">7 奖惩</a>
+  <a href="#s8">8 常见问题</a>
+  <a href="#s9">9 调整建议</a>
+</nav>
+
+<h2 id="s1">一、这是什么</h2>
+<p>它不是普通的早睡打卡，而是按 <b>R90 周期</b>来排作息：一个完整的睡眠周期约 90 分钟，醒来最好落在周期结束的点上，而不是被闹钟从深睡里拽出来。</p>
+<p>你们现在每天 3:30 才睡，直接改成 22:00 身体跟不上。所以这个工具做三件事：</p>
+<ul>
+  <li><b>自动排计划</b>：每 2 天提前 30 分钟，22 天走到 22:00</li>
+  <li><b>按实际入睡重算</b>：早睡就自动把起床和后续计划往前挪</li>
+  <li><b>互相看得见</b>：两个人的入睡、起床、打卡、小红花都能看到</li>
+</ul>
+
+<h2 id="s2">二、怎么打开</h2>
+<div class="step"><i>1</i><div>用手机浏览器打开：<b>https://silence-cyq.github.io/r90-sleep-checkin/</b></div></div>
+<div class="step"><i>2</i><div>iPhone：点底部「分享」→「添加到主屏幕」；安卓：菜单 →「添加到主屏幕」。之后就像 App 一样点开。</div></div>
+<div class="step"><i>3</i><div>两个人用<b>同一个链接</b>。顶部切换「彦冬 / 小金」，各自的数据分开存，不会互相覆盖。</div></div>
+<p class="note">两个人的数据会自动同步，一般 20 秒内刷新；如果显示「离线」，检查一下网络，重新打开即可。</p>
+
+<h2 id="s3">三、每天怎么打卡</h2>
+<h3>晚上：点「我要睡了」</h3>
+<ul>
+  <li>系统记录你<b>实际入睡时间</b></li>
+  <li>如果早于计划，会自动重算起床时间，并把后面的计划整体提前</li>
+  <li>如果晚于计划，记为<b>未达标</b>，计划不后退</li>
+</ul>
+
+<h3>早上：点「我起床了」</h3>
+<ul>
+  <li>记录实际起床时间，用于展示和达标判断</li>
+  <li><b>起床早或晚都不影响周期数</b>，周期固定按计划算（默认 5 个）</li>
+</ul>
+
+<div class="rule">
+<b>达标规则：</b>入睡<b>不晚于</b>计划时间，就算成功；晚 1 分钟也算未达标。<br>
+<b>周期规则：</b>起床时间 = 实际入睡 + 15 分钟缓冲 + 周期数 × 90 分钟。
+</div>
+
+<h2 id="s4">四、睡眠计划怎么改</h2>
+<p>默认方案（11 月 11 日开始）：</p>
+<table>
+  <thead><tr><th>项目</th><th>默认值</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>起始入睡</td><td>03:30</td><td>你现在的时间</td></tr>
+    <tr><td>目标入睡</td><td>22:00</td><td>想达到的时间</td></tr>
+    <tr><td>调整节奏</td><td>每 2 天提前 30 分钟</td><td>共 22 天到位</td></tr>
+    <tr><td>睡眠周期</td><td>5 个（7.5 小时）</td><td>可改 4 / 5 / 6 个</td></tr>
+    <tr><td>入睡缓冲</td><td>15 分钟</td><td>躺下到睡着的时间</td></tr>
+  </tbody>
+</table>
+<p>在「设置」里可以改目标入睡、起始入睡、周期数、开始日期；节奏有三档：</p>
+<div class="grid">
+  <div class="cell"><div class="h">稳健</div>20 分钟 / 3 天，身体最容易接受，但周期长</div>
+  <div class="cell"><div class="h">标准</div>30 分钟 / 2 天，默认方案，22 天到位</div>
+  <div class="cell"><div class="h">加快</div>30 分钟 / 1 天，适合已经适应得不错的时候</div>
+  <div class="cell"><div class="h">周期数</div>5 个约 7.5 小时；想睡到 7 点后，选 6 个</div>
+</div>
+<p class="note">改了目标、起始或周期数，「提前量」会清零，按新计划重新计算。</p>
+
+<h2 id="s5">五、打卡项怎么用</h2>
+<p>默认四项：喝水（8 杯）、读书、晒太阳、睡前不刷手机。</p>
+<ul>
+  <li>点「＋ / −」记次数，达到目标自动完成</li>
+  <li>点每一项下面的「编辑」，可以改名称、图标、目标、单位，也能删除</li>
+  <li>「＋ 添加打卡项」可以自己加，比如拉伸、冥想、记账</li>
+</ul>
+<h3>戒烟计时器（彦冬专属）</h3>
+<p>显示已戒烟的天数和小时，可「从此刻重新计时」或「修改起点」。<b>它不计入打卡完成</b>，不影响小红花。</p>
+
+<h2 id="s6">六、小红花怎么算</h2>
+<table>
+  <thead><tr><th>当天情况</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td>按时入睡 + 全部打卡项完成</td><td>得 1 朵 🌸</td></tr>
+    <tr><td>未完成（睡眠晚于计划，或打卡没做完）</td><td>扣 1 朵</td></tr>
+    <tr><td>请假</td><td>不增不减</td></tr>
+    <tr><td>补签</td><td>把过去未完成的一天改为得 1 朵</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><b>今天</b>没完成时显示「进行中」，不会立刻扣；<b>第二天</b>才结算</li>
+  <li>补签只能补最近 7 天内的扣花日</li>
+  <li>请假可以在记录里单日操作，也可以选一个日期统一设</li>
+  <li>排行榜显示的是<b>累计获得</b>；兑换奖励扣的是<b>可用余额</b></li>
+</ul>
+
+<h2 id="s7">七、奖惩怎么设</h2>
+<h3>奖励兑换</h3>
+<div class="step"><i>1</i><div>进「小红花」→「奖励兑换」，顶部选给谁设（默认是对方）</div></div>
+<div class="step"><i>2</i><div>点「＋ 添加奖励」，填名称、图标、需要多少朵</div></div>
+<div class="step"><i>3</i><div>花够了点「兑换」，自动扣可用余额并记一次</div></div>
+<p>例子：连续 7 天达标 → 一顿火锅（7 朵）；戒烟满 100 小时 → 一件想要的东西（10 朵）。</p>
+
+<h3>惩罚条款</h3>
+<p>可以写「本周少于 3 朵 → 请喝奶茶」这类条件，触发后点「记一次」，累计执行次数。双方都能添加、编辑、删除。</p>
+
+<h2 id="s8">八、常见问题</h2>
+<h3>换了手机，数据还在吗？</h3>
+<p>在。用同一个链接打开、选同一个人，数据会自动拉回来。</p>
+<h3>为什么今天没扣花？</h3>
+<p>当天是「进行中」，第二天才结算。只要当天结束前完成，就不扣。</p>
+<h3>起早了算不算达标？</h3>
+<p>起床时间只记录，不影响周期，也不改计划；周期固定按计划算。</p>
+<h3>睡晚了计划会往后拖吗？</h3>
+<p>不会。晚睡记为未达标，目标时间不动；只有早睡才会把计划往前推。</p>
+<h3>花不够兑换怎么办？</h3>
+<p>先攒。兑换按钮会灰掉，显示还差多少；也可以把奖励的所需朵数改低一点。</p>
+<h3>两个人都能看到对方吗？</h3>
+<p>能。今日页有「对方情况」，小红花页有双方榜单一栏。</p>
+
+<h2 id="s9">九、更容易成功的几个建议</h2>
+<ul>
+  <li><b>起床后晒太阳 10–20 分钟</b>，这是把生物钟往前拨最有效的一招</li>
+  <li><b>睡前 1 小时调暗灯光</b>，手机开夜间模式，别在床上刷短视频</li>
+  <li><b>午睡不超过 20 分钟</b>，下午 3 点后别睡</li>
+  <li><b>周末别晚于计划 1 小时</b>，否则周一又要重来</li>
+  <li><b>前 3 天最难</b>，别追求一步到位，按计划每天挪一点就够了</li>
+</ul>
+
+<div class="note">
+<b>一句话记住：</b>晚上按计划睡，早上按周期起，白天把小事打勾，花自然就攒下来了。
+</div>
+
+<footer>
+R90 睡眠打卡 · 使用说明 ｜ 2026-11-11 ｜ 打开地址：https://silence-cyq.github.io/r90-sleep-checkin/
+</footer>
+
+</div>
+</body>
+</html>
