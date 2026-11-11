@@ -170,6 +170,31 @@
   .rw-item .go:disabled{opacity:.4;cursor:default}
   .rw-item .pen{border-color:#4a2b3a;background:rgba(248,113,113,.10);color:#ffb3b3}
   .rw-item .ed{border:0;background:transparent;color:var(--muted);font-size:14px;cursor:pointer;padding:2px 4px}
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .cal-nav button{width:32px;height:32px;border-radius:9px;border:1px solid var(--line);
+    background:#242838;color:var(--ink);font-size:16px;line-height:1;cursor:pointer}
+  .cal-nav .m{font-size:13.5px;font-weight:600}
+  .cal-week{display:grid;grid-template-columns:repeat(7,1fr);font-size:11px;color:var(--muted);
+    text-align:center;margin-bottom:7px}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal-cell{aspect-ratio:1;border-radius:10px;background:#242838;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-size:12.5px;cursor:pointer;border:1px solid transparent;
+    color:#c9cfe2;user-select:none}
+  .cal-cell.empty{background:transparent;cursor:default}
+  .cal-cell.future{background:transparent;color:#4d5266;cursor:default}
+  .cal-cell.done{background:rgba(74,222,128,.16);color:#9ef0bd}
+  .cal-cell.miss{background:rgba(248,113,113,.16);color:#ffb3b3}
+  .cal-cell.half{background:rgba(251,191,36,.11);color:#e8c887}
+  .cal-cell.leave{background:rgba(124,156,255,.14);color:#a9bcff}
+  .cal-cell.makeup{background:rgba(251,191,36,.20);color:#ffd479}
+  .cal-cell.none{background:#222634;color:#8f95a8}
+  .cal-cell.today{outline:2px solid var(--accent);outline-offset:-2px}
+  .cal-cell.sel{box-shadow:inset 0 0 0 2px #fff}
+  .cal-cell .dot{width:4px;height:4px;border-radius:50%;margin-top:3px;background:currentColor;opacity:.75}
+  .cal-detail{margin-top:10px;padding-top:10px;border-top:1px solid #262a39;font-size:12px;
+    color:var(--muted);line-height:1.65;min-height:20px}
+  .cal-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:10.5px;color:var(--muted)}
+  .cal-legend i{display:inline-block;width:8px;height:8px;border-radius:3px;margin-right:4px}
   .empty{text-align:center;color:var(--muted);font-size:13px;padding:24px 0}
   @media (max-width:380px){.big{font-size:48px}.brand{font-size:13px}}
 </style>
@@ -242,6 +267,25 @@
   <section id="view-flower" hidden>
     <div class="section-title"><span>小红花榜</span><span>按时睡 + 全部打卡 = 花</span></div>
     <div class="grid" id="flowerBoard"></div>
+
+    <div class="section-title"><span>打卡日历</span><span id="calHint"></span></div>
+    <div class="users" id="calWho" style="margin:0 0 10px;width:max-content"></div>
+    <div class="card" style="padding:14px">
+      <div class="cal-nav">
+        <button id="calPrev">‹</button>
+        <div class="m" id="calTitle"></div>
+        <button id="calNext">›</button>
+      </div>
+      <div class="cal-week"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-detail" id="calDetail"></div>
+      <div class="cal-legend">
+        <span><i style="background:#4ade80"></i>得花</span>
+        <span><i style="background:#fbbf24"></i>不加不扣</span>
+        <span><i style="background:#f87171"></i>扣花</span>
+        <span><i style="background:#7c9cff"></i>请假</span>
+      </div>
+    </div>
 
     <div class="section-title"><span>我的记录</span><span id="flowerTotal"></span></div>
     <div class="card" style="padding:6px 14px 10px" id="flowerList"></div>
@@ -732,10 +776,10 @@
       list.appendChild(el);
     });
     list.querySelectorAll('[data-plus]').forEach(b=>{
-      b.onclick = () => { const id=b.dataset.plus; log.checks[id]=(log.checks[id]||0)+1; markDirty(data.active); renderCheck(); renderToday(); };
+      b.onclick = () => { const id=b.dataset.plus; log.checks[id]=(log.checks[id]||0)+1; markDirty(data.active); renderCheck(); renderToday(); renderFlowers(); };
     });
     list.querySelectorAll('[data-minus]').forEach(b=>{
-      b.onclick = () => { const id=b.dataset.minus; log.checks[id]=Math.max(0,(log.checks[id]||0)-1); markDirty(data.active); renderCheck(); renderToday(); };
+      b.onclick = () => { const id=b.dataset.minus; log.checks[id]=Math.max(0,(log.checks[id]||0)-1); markDirty(data.active); renderCheck(); renderToday(); renderFlowers(); };
     });
     list.querySelectorAll('[data-edit]').forEach(b=>{
       b.onclick = () => openEdit(u.modules.find(x=>x.id===b.dataset.edit));
@@ -909,6 +953,7 @@
         markDirty(data.active); renderFlowers();
       };
     });
+    renderCalendar();
   }
 
   // ---------- 奖惩 ----------
@@ -1014,6 +1059,95 @@
     });
   }
 
+  // ---------- 日历 ----------
+  let calUser = null, calY = null, calM = null, calSel = null;
+
+  function renderCalendar(){
+    if(!calUser) calUser = data.active;
+    if(calY == null){ const t = new Date(); calY = t.getFullYear(); calM = t.getMonth(); }
+    const u = data.users[calUser];
+
+    const who = document.getElementById('calWho');
+    who.innerHTML = '';
+    ['yandong','xiaojin'].forEach(id=>{
+      const b = document.createElement('button');
+      b.textContent = data.users[id].name;
+      b.className = calUser === id ? 'on' : '';
+      b.onclick = () => { calUser = id; calSel = null; renderCalendar(); };
+      who.appendChild(b);
+    });
+
+    document.getElementById('calTitle').textContent = calY + ' 年 ' + (calM+1) + ' 月';
+
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+    const lead = (new Date(calY, calM, 1).getDay() + 6) % 7;
+    const dim = new Date(calY, calM+1, 0).getDate();
+    for(let i=0;i<lead;i++){
+      const e = document.createElement('div');
+      e.className = 'cal-cell empty';
+      grid.appendChild(e);
+    }
+    let monthTotal = 0;
+    for(let d=1; d<=dim; d++){
+      const date = calY + '-' + pad(calM+1) + '-' + pad(d);
+      const isFuture = date > today();
+      let st = null;
+      if(!isFuture){
+        st = dayStatus(u, date, date === today());
+        monthTotal += st.delta;
+      }
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell' + (isFuture ? ' future' : '') + (st ? ' ' + st.type : '') +
+        (date === today() ? ' today' : '') + (date === calSel ? ' sel' : '');
+      cell.innerHTML = d + (st && st.delta !== 0 ? '<span class="dot"></span>' : '');
+      cell.onclick = () => { if(isFuture) return; calSel = date; renderCalendar(); };
+      grid.appendChild(cell);
+    }
+    document.getElementById('calHint').textContent = '本月 ' + (monthTotal > 0 ? '+' : '') + monthTotal + ' 朵';
+
+    const det = document.getElementById('calDetail');
+    if(!calSel){
+      det.textContent = '点某一天，查看入睡、起床和打卡详情';
+      return;
+    }
+    const lg = (u.logs || {})[calSel] || {};
+    const mods = (u.modules || []).filter(m=>m.type !== 'timer');
+    const done = mods.filter(m=>((lg.checks||{})[m.id]||0) >= m.target).length;
+    const st = calSel > today() ? null : dayStatus(u, calSel, calSel === today());
+    let html = '<b style="color:#eef0f6">' + calSel + ' ' + weekday(calSel) + '</b> · ' +
+      (st ? st.label : '未到这一天');
+    if(lg.sleep && lg.sleep.bed){
+      html += '<br>入睡 ' + lg.sleep.bed + (lg.sleep.bedOk ? ' ✅' : ' ❌') +
+        (lg.sleep.wake ? ' · 起床 ' + lg.sleep.wake + (lg.sleep.wakeOk ? ' ✅' : ' ❌') : ' · 待起床');
+    }else{
+      html += '<br>无入睡记录';
+    }
+    html += '<br>打卡 ' + done + ' / ' + mods.length;
+    if(u.overrides && u.overrides[calSel]){
+      html += ' · ' + (u.overrides[calSel] === 'leave' ? '已请假' : '已补签');
+    }
+    let acts = '';
+    if(st && st.type === 'miss' && diffDays(calSel, today()) <= 7 && !(u.overrides||{})[calSel]){
+      acts += '<button class="edit-link" data-cal-makeup="' + calSel + '">补签这一天</button>';
+    }
+    if((u.overrides||{})[calSel]){
+      acts += '<button class="edit-link" data-cal-undo="' + calSel + '">撤销</button>';
+    }else if(st){
+      acts += '<button class="edit-link" data-cal-leave="' + calSel + '">设为请假</button>';
+    }
+    det.innerHTML = html + (acts ? '<br>' + acts : '');
+    det.querySelectorAll('[data-cal-makeup]').forEach(b=>{
+      b.onclick = () => { u.overrides = u.overrides || {}; u.overrides[b.dataset.calMakeup] = 'makeup'; markDirty(calUser); renderFlowers(); };
+    });
+    det.querySelectorAll('[data-cal-leave]').forEach(b=>{
+      b.onclick = () => { u.overrides = u.overrides || {}; u.overrides[b.dataset.calLeave] = 'leave'; markDirty(calUser); renderFlowers(); };
+    });
+    det.querySelectorAll('[data-cal-undo]').forEach(b=>{
+      b.onclick = () => { delete u.overrides[b.dataset.calUndo]; markDirty(calUser); renderFlowers(); };
+    });
+  }
+
   function renderAll(){ renderUsers(); renderToday(); renderPlan(); renderCheck(); renderFlowers(); renderRewards(); renderSet(); renderSync(); }
 
   // ---------- 事件 ----------
@@ -1024,6 +1158,7 @@
       ['today','plan','check','flower','set'].forEach(v=>{
         document.getElementById('view-'+v).hidden = (v !== b.dataset.view);
       });
+      if(b.dataset.view === 'flower') renderCalendar();
       window.scrollTo({top:0,behavior:'smooth'});
     };
   });
@@ -1043,7 +1178,7 @@
     }
     const wakeTarget = toTime(toMin(bed) + s.buffer + s.cycles * 90);
     log.sleep = { bed, plannedBed, bedOk, wake:null, wakeOk:null, cycles:0, wakeTarget, plannedWake };
-    markDirty(data.active); renderToday();
+    markDirty(data.active); renderToday(); renderFlowers();
   };
   document.getElementById('btnWake').onclick = () => {
     const now = new Date();
@@ -1056,7 +1191,7 @@
     log.sleep.cycles = user().settings.cycles;
     const target = log.sleep.wakeTarget || log.sleep.plannedWake;
     log.sleep.wakeOk = target ? (nightMin(wake) <= nightMin(target)) : null;
-    markDirty(data.active); renderToday();
+    markDirty(data.active); renderToday(); renderFlowers();
   };
 
   let editingId = null;
@@ -1217,6 +1352,15 @@
     markDirty(rwTarget);
     document.getElementById('rwModal').classList.remove('show');
     renderRewards();
+  };
+
+  document.getElementById('calPrev').onclick = () => {
+    calM--; if(calM < 0){ calM = 11; calY--; }
+    calSel = null; renderCalendar();
+  };
+  document.getElementById('calNext').onclick = () => {
+    calM++; if(calM > 11){ calM = 0; calY++; }
+    calSel = null; renderCalendar();
   };
 
   setInterval(renderToday, 60000);
