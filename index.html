@@ -156,6 +156,18 @@
   .day-row .act button{border:1px solid #363b4d;background:transparent;color:var(--muted);
     border-radius:8px;padding:3px 8px;font-size:10.5px;cursor:pointer}
   .day-row .act button:hover{color:var(--ink)}
+  .rw-item{display:flex;align-items:center;gap:11px;background:var(--card);
+    border:1px solid var(--line);border-radius:14px;padding:11px 13px;margin-bottom:9px}
+  .rw-item .ic{font-size:20px;width:26px;text-align:center}
+  .rw-item .bd{flex:1;min-width:0}
+  .rw-item .tt{font-size:13.5px;font-weight:600}
+  .rw-item .mm{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .rw-item .cost{font-size:12px;color:#ffd1e5;white-space:nowrap}
+  .rw-item .go{border:1px solid #4a3350;background:rgba(244,114,182,.12);color:#ffd1e5;
+    border-radius:9px;padding:5px 9px;font-size:11.5px;cursor:pointer;white-space:nowrap}
+  .rw-item .go:disabled{opacity:.4;cursor:default}
+  .rw-item .pen{border-color:#4a2b3a;background:rgba(248,113,113,.10);color:#ffb3b3}
+  .rw-item .ed{border:0;background:transparent;color:var(--muted);font-size:14px;cursor:pointer;padding:2px 4px}
   .empty{text-align:center;color:var(--muted);font-size:13px;padding:24px 0}
   @media (max-width:380px){.big{font-size:48px}.brand{font-size:13px}}
 </style>
@@ -232,6 +244,15 @@
     <div class="section-title"><span>我的记录</span><span id="flowerTotal"></span></div>
     <div class="card" style="padding:6px 14px 10px" id="flowerList"></div>
 
+    <div class="section-title"><span>奖励兑换</span><span id="rwAvailable"></span></div>
+    <div class="users" id="rwWho" style="margin:0 0 10px;width:max-content"></div>
+    <div id="rewardList"></div>
+    <button class="ghost" id="addReward">＋ 添加奖励（给上面这个人）</button>
+
+    <div class="section-title"><span>惩罚条款</span><span id="penCount"></span></div>
+    <div id="penaltyList"></div>
+    <button class="ghost" id="addPenalty">＋ 添加惩罚（给上面这个人）</button>
+
     <div class="card" style="margin-top:10px">
       <div class="row"><span>请假日期</span><input id="leaveDate" type="date"></div>
       <button class="ghost" id="btnLeave">设为请假（当天不扣花）</button>
@@ -301,6 +322,21 @@
   </div>
 </div>
 
+<div class="modal" id="rwModal">
+  <div class="box">
+    <h3 id="rwTitle">添加奖励</h3>
+    <div class="row"><span>图标</span><input id="rwIcon" placeholder="🎁" maxlength="2"></div>
+    <div class="row"><span>名称</span><input id="rwName" placeholder="如：一顿火锅"></div>
+    <div class="row" id="rwCostRow"><span>所需小红花</span><input id="rwCost" type="number" min="1" max="999" value="5"></div>
+    <div class="row" id="rwCondRow" hidden><span>触发条件</span><input id="rwCond" placeholder="如：本周少于 3 朵"></div>
+    <div class="acts">
+      <button id="rwCancel">取消</button>
+      <button class="primary" id="rwSave">保存</button>
+    </div>
+    <button class="del" id="rwDel" hidden>删除这一条</button>
+  </div>
+</div>
+
 <script>
 (function(){
   const KEY = 'r90_checkin_v2';
@@ -337,7 +373,7 @@
     if(withTimer){
       mods.push({ id:'smoke', name:'戒烟', icon:'🚭', type:'timer', since: new Date().toISOString() });
     }
-    return { name, updatedAt: 0, settings: defaultSettings(), modules: mods, logs: {}, overrides: {} };
+    return { name, updatedAt: 0, settings: defaultSettings(), modules: mods, logs: {}, overrides: {}, rewards: [], redemptions: [], penalties: [], penaltyLog: [] };
   }
   function defaultData(){
     return { active:'yandong', users:{ yandong:newUser('彦冬', true), xiaojin:newUser('小金', false) } };
@@ -482,7 +518,7 @@
       const b = document.createElement('button');
       b.textContent = data.users[id].name || (id==='yandong'?'彦冬':'小金');
       b.className = data.active === id ? 'on' : '';
-      b.onclick = () => { data.active = id; save(); renderAll(); };
+      b.onclick = () => { data.active = id; rwTarget = null; save(); renderAll(); };
       box.appendChild(b);
     });
   }
@@ -861,7 +897,110 @@
     });
   }
 
-  function renderAll(){ renderUsers(); renderToday(); renderPlan(); renderCheck(); renderFlowers(); renderSet(); renderSync(); }
+  // ---------- 奖惩 ----------
+  let rwTarget = null, rwMode = 'reward', rwEditId = null;
+
+  function openRw(mode, id){
+    rwMode = mode;
+    rwEditId = id || null;
+    const u = data.users[rwTarget];
+    const item = id ? (mode === 'reward' ? u.rewards.find(x=>x.id===id) : u.penalties.find(x=>x.id===id)) : null;
+    document.getElementById('rwTitle').textContent =
+      (id ? '编辑' : '添加') + (mode === 'reward' ? '奖励' : '惩罚') + ' · ' + u.name;
+    document.getElementById('rwIcon').value = item ? (item.icon || '') : (mode === 'reward' ? '🎁' : '⚠️');
+    document.getElementById('rwName').value = item ? item.title : '';
+    document.getElementById('rwCostRow').hidden = mode !== 'reward';
+    document.getElementById('rwCondRow').hidden = mode !== 'penalty';
+    if(mode === 'reward') document.getElementById('rwCost').value = item ? item.cost : 5;
+    else document.getElementById('rwCond').value = item ? (item.condition || '') : '';
+    document.getElementById('rwDel').hidden = !id;
+    document.getElementById('rwModal').classList.add('show');
+  }
+
+  function renderRewards(){
+    if(!rwTarget) rwTarget = otherId();
+    const u = data.users[rwTarget];
+    u.rewards = u.rewards || [];
+    u.redemptions = u.redemptions || [];
+    u.penalties = u.penalties || [];
+    u.penaltyLog = u.penaltyLog || [];
+
+    const who = document.getElementById('rwWho');
+    who.innerHTML = '';
+    ['yandong','xiaojin'].forEach(id=>{
+      const b = document.createElement('button');
+      b.textContent = data.users[id].name;
+      b.className = rwTarget === id ? 'on' : '';
+      b.onclick = () => { rwTarget = id; renderRewards(); };
+      who.appendChild(b);
+    });
+
+    const spent = u.redemptions.reduce((s,r)=>s + (r.cost || 0), 0);
+    const avail = Math.max(0, flowerTotal(u) - spent);
+    document.getElementById('rwAvailable').textContent = '可用 ' + avail + ' 朵';
+
+    const rl = document.getElementById('rewardList');
+    rl.innerHTML = '';
+    if(!u.rewards.length){
+      rl.innerHTML = '<div class="empty">还没有奖励，给 ' + escapeHtml(u.name) + ' 加一个</div>';
+    }
+    u.rewards.forEach(r=>{
+      const used = u.redemptions.filter(x=>x.rewardId === r.id).length;
+      const el = document.createElement('div');
+      el.className = 'rw-item';
+      el.innerHTML = '<div class="ic">' + (r.icon || '🎁') + '</div>' +
+        '<div class="bd"><div class="tt">' + escapeHtml(r.title) + '</div>' +
+        '<div class="mm">' + r.cost + ' 朵 · 已兑 ' + used + ' 次</div></div>' +
+        '<button class="go" data-redeem="' + r.id + '"' + (avail < r.cost ? ' disabled' : '') + '>兑换</button>' +
+        '<button class="ed" data-editreward="' + r.id + '">✎</button>';
+      rl.appendChild(el);
+    });
+
+    const pl = document.getElementById('penaltyList');
+    pl.innerHTML = '';
+    if(!u.penalties.length){
+      pl.innerHTML = '<div class="empty">还没有惩罚条款</div>';
+    }
+    u.penalties.forEach(p=>{
+      const cnt = u.penaltyLog.filter(x=>x.penaltyId === p.id).length;
+      const el = document.createElement('div');
+      el.className = 'rw-item';
+      el.innerHTML = '<div class="ic">' + (p.icon || '⚠️') + '</div>' +
+        '<div class="bd"><div class="tt">' + escapeHtml(p.title) + '</div>' +
+        '<div class="mm">' + escapeHtml(p.condition || '触发时执行') + ' · 已执行 ' + cnt + ' 次</div></div>' +
+        '<button class="go pen" data-penalty="' + p.id + '">记一次</button>' +
+        '<button class="ed" data-editpen="' + p.id + '">✎</button>';
+      pl.appendChild(el);
+    });
+    document.getElementById('penCount').textContent = '累计执行 ' + u.penaltyLog.length + ' 次';
+
+    rl.querySelectorAll('[data-redeem]').forEach(b=>{
+      b.onclick = () => {
+        const r = u.rewards.find(x=>x.id === b.dataset.redeem);
+        if(!r) return;
+        if(!confirm('兑换「' + r.title + '」，扣 ' + r.cost + ' 朵？')) return;
+        u.redemptions.push({ id:'rd'+Date.now(), rewardId:r.id, title:r.title, cost:r.cost, ts:new Date().toISOString() });
+        markDirty(rwTarget); renderRewards(); renderFlowers();
+      };
+    });
+    rl.querySelectorAll('[data-editreward]').forEach(b=>{
+      b.onclick = () => openRw('reward', b.dataset.editreward);
+    });
+    pl.querySelectorAll('[data-penalty]').forEach(b=>{
+      b.onclick = () => {
+        const p = u.penalties.find(x=>x.id === b.dataset.penalty);
+        if(!p) return;
+        if(!confirm('记录一次「' + p.title + '」？')) return;
+        u.penaltyLog.push({ id:'pl'+Date.now(), penaltyId:p.id, title:p.title, ts:new Date().toISOString() });
+        markDirty(rwTarget); renderRewards();
+      };
+    });
+    pl.querySelectorAll('[data-editpen]').forEach(b=>{
+      b.onclick = () => openRw('penalty', b.dataset.editpen);
+    });
+  }
+
+  function renderAll(){ renderUsers(); renderToday(); renderPlan(); renderCheck(); renderFlowers(); renderRewards(); renderSet(); renderSync(); }
 
   // ---------- 事件 ----------
   document.querySelectorAll('.tabbar button').forEach(b=>{
@@ -1028,6 +1167,42 @@
     if(!confirm('把 ' + d + ' 设为请假？当天不增不减。')) return;
     u.overrides[d] = 'leave';
     markDirty(data.active); renderFlowers();
+  };
+
+  document.getElementById('addReward').onclick = () => openRw('reward', null);
+  document.getElementById('addPenalty').onclick = () => openRw('penalty', null);
+  document.getElementById('rwCancel').onclick = () => document.getElementById('rwModal').classList.remove('show');
+  document.getElementById('rwSave').onclick = () => {
+    const u = data.users[rwTarget];
+    u.rewards = u.rewards || [];
+    u.penalties = u.penalties || [];
+    const title = document.getElementById('rwName').value.trim();
+    if(!title) return;
+    const icon = document.getElementById('rwIcon').value.trim() || (rwMode === 'reward' ? '🎁' : '⚠️');
+    if(rwMode === 'reward'){
+      const cost = Math.max(1, parseInt(document.getElementById('rwCost').value) || 1);
+      const r = rwEditId ? u.rewards.find(x=>x.id === rwEditId) : null;
+      if(r) Object.assign(r, { icon, title, cost });
+      else u.rewards.push({ id:'rw'+Date.now(), icon, title, cost });
+    }else{
+      const condition = document.getElementById('rwCond').value.trim();
+      const p = rwEditId ? u.penalties.find(x=>x.id === rwEditId) : null;
+      if(p) Object.assign(p, { icon, title, condition });
+      else u.penalties.push({ id:'pn'+Date.now(), icon, title, condition });
+    }
+    markDirty(rwTarget);
+    document.getElementById('rwModal').classList.remove('show');
+    renderRewards();
+  };
+  document.getElementById('rwDel').onclick = () => {
+    if(!rwEditId) return;
+    const u = data.users[rwTarget];
+    if(!confirm('删除这一条？')) return;
+    if(rwMode === 'reward') u.rewards = u.rewards.filter(x=>x.id !== rwEditId);
+    else u.penalties = u.penalties.filter(x=>x.id !== rwEditId);
+    markDirty(rwTarget);
+    document.getElementById('rwModal').classList.remove('show');
+    renderRewards();
   };
 
   setInterval(renderToday, 60000);
