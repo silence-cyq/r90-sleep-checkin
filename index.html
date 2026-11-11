@@ -152,6 +152,8 @@
   .day-tag.leave{background:rgba(124,156,255,.14);color:#9db4ff}
   .day-tag.makeup{background:rgba(251,191,36,.14);color:#ffd479}
   .day-tag.pending{background:rgba(154,160,180,.14);color:#aab0c4}
+  .day-tag.half{background:rgba(251,191,36,.10);color:#d9bd7a}
+  .day-tag.none{background:rgba(154,160,180,.10);color:#8f95a8}
   .day-row .act{margin-left:auto;display:flex;gap:6px}
   .day-row .act button{border:1px solid #363b4d;background:transparent;color:var(--muted);
     border-radius:8px;padding:3px 8px;font-size:10.5px;cursor:pointer}
@@ -238,7 +240,7 @@
   </section>
 
   <section id="view-flower" hidden>
-    <div class="section-title"><span>小红花榜</span><span>按时睡 + 全部打卡</span></div>
+    <div class="section-title"><span>小红花榜</span><span>按时睡 + 全部打卡 = 花</span></div>
     <div class="grid" id="flowerBoard"></div>
 
     <div class="section-title"><span>我的记录</span><span id="flowerTotal"></span></div>
@@ -258,7 +260,7 @@
       <button class="ghost" id="btnLeave">设为请假（当天不扣花）</button>
     </div>
     <div class="tip" style="padding:12px 4px">
-      规则：按时入睡（不晚于计划）且当天全部打卡完成，得 1 朵；未完成扣 1 朵；戒烟计时不计入打卡项；请假当天不增不减；补签可把过去未完成的一天改为得花。
+      规则：按时入睡（不晚于计划）且当天全部打卡完成，得 1 朵；按时入睡但打卡没完成，不加不扣；晚于计划入睡，扣 1 朵；未打卡不加不扣。戒烟计时不计入打卡项；请假当天不增不减；补签可把过去扣花的一天改为得花。
     </div>
   </section>
 
@@ -801,10 +803,19 @@
     const mods = (u.modules || []).filter(m=>m.type !== 'timer');
     const done = mods.filter(m=>((lg.checks||{})[m.id]||0) >= m.target).length;
     const allDone = mods.length === 0 ? true : done === mods.length;
-    const onTime = !!(lg.sleep && lg.sleep.bedOk);
-    if(onTime && allDone) return { type:'done', delta:1, label:'得花 +1' };
-    if(isToday) return { type:'pending', delta:0, label:'进行中', done, total:mods.length, onTime };
-    return { type:'miss', delta:-1, label:'扣花 -1' };
+    const hasSleep = !!(lg.sleep && lg.sleep.bed);
+    const late = hasSleep && lg.sleep.bedOk === false;
+    const onTime = hasSleep && !late;
+
+    // 规则：晚于计划入睡直接扣花；按时睡且全部打卡得花；按时睡但没打完不加不扣
+    if(late) return { type:'miss', delta:-1, label:'晚睡 -1', done, total:mods.length, onTime:false };
+    if(!hasSleep) return isToday
+      ? { type:'pending', delta:0, label:'待入睡', done, total:mods.length, onTime:false }
+      : { type:'none', delta:0, label:'未打卡' };
+    if(allDone) return { type:'done', delta:1, label:'得花 +1', done, total:mods.length, onTime:true };
+    return isToday
+      ? { type:'pending', delta:0, label:'打卡未完成', done, total:mods.length, onTime:true }
+      : { type:'half', delta:0, label:'不加不扣', done, total:mods.length, onTime:true };
   }
   function flowerTotal(u){
     const start = (u.settings && u.settings.startDate) || today();
@@ -830,7 +841,9 @@
       if(r.type === 'done') st = '今日已完成，+1 朵';
       else if(r.type === 'leave') st = '今日请假，不增不减';
       else if(r.type === 'makeup') st = '今日已补签，+1 朵';
-      else st = '今日完成 ' + (r.done||0) + '/' + (r.total||0) + ' · ' + (r.onTime ? '已按时睡' : '待入睡');
+      else if(r.type === 'miss') st = '今日晚于计划入睡，-1 朵';
+      else if(r.type === 'pending') st = '今日打卡 ' + (r.done||0) + '/' + (r.total||0) + ' · ' + (r.onTime ? '已按时睡' : '待入睡');
+      else st = '今日未打卡';
       card.innerHTML = '<div class="n">' + escapeHtml(u.name) + '</div>' +
         '<div class="score">🌸 ' + flowerTotal(u) + '<small>朵</small></div>' +
         '<div class="st">' + st + '</div>';
