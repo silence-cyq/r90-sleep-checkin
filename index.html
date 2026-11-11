@@ -898,11 +898,9 @@
     if(!entry) return;
     const log = logAt(entry.key);
     const wake = pad(now.getHours())+':'+pad(now.getMinutes());
-    let dur = toMin(wake) - toMin(log.sleep.bed);
-    if(dur < 0) dur += 1440;
-    const buffered = Math.max(0, dur - user().settings.buffer);
     log.sleep.wake = wake;
-    log.sleep.cycles = Math.floor(buffered / 90);
+    // 周期数只按计划固定，不随实际起床早晚变化
+    log.sleep.cycles = user().settings.cycles;
     const target = log.sleep.wakeTarget || log.sleep.plannedWake;
     log.sleep.wakeOk = target ? (nightMin(wake) <= nightMin(target)) : null;
     markDirty(data.active); renderToday();
