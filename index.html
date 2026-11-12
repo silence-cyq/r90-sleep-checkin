@@ -491,13 +491,20 @@
   }
   // 取某一天“晚上”的睡眠：优先当天；若当天没有，看次日凌晨（兼容旧版本记录）
   function sleepForDate(u, date){
+    const hourOf = t => parseInt(String(t).split(':')[0], 10);
     const lg = (u.logs || {})[date];
-    if(lg && lg.sleep && lg.sleep.bed) return lg.sleep;
+    const own = lg && lg.sleep;
+    if(own && own.bed){
+      if(own.night) return own.night === date ? own : null;
+      // 旧记录没有 night 标记：凌晨入睡的算前一天那一晚
+      if(hourOf(own.bed) >= 12) return own;
+    }
     const nd = addDays(date, 1);
     const nl = (u.logs || {})[nd];
-    if(nl && nl.sleep && nl.sleep.bed){
-      const h = parseInt(String(nl.sleep.bed).split(':')[0], 10);
-      if(h < 12) return nl.sleep;
+    const nxt = nl && nl.sleep;
+    if(nxt && nxt.bed){
+      if(nxt.night) return nxt.night === date ? nxt : null;
+      if(hourOf(nxt.bed) < 12) return nxt;
     }
     return null;
   }
@@ -1354,7 +1361,7 @@
     const wakeTarget = toTime(toMin(bed) + s.buffer + s.cycles * 90);
     const oldWake = prev && prev.key === skey ? (prev.s.wake || null) : null;
     const log = logAt(skey);
-    log.sleep = { bed, plannedBed, bedOk, wake: oldWake, wakeOk: null, cycles: oldWake ? s.cycles : 0, wakeTarget, plannedWake, boostApplied: applied };
+    log.sleep = { bed, plannedBed, bedOk, wake: oldWake, wakeOk: null, cycles: oldWake ? s.cycles : 0, wakeTarget, plannedWake, boostApplied: applied, night: skey };
     if(oldWake) log.sleep.wakeOk = nightMin(oldWake) <= nightMin(wakeTarget) + GRACE;
     markDirty(data.active); renderToday(); renderFlowers();
   };
