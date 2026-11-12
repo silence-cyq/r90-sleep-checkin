@@ -488,6 +488,18 @@
     const h = new Date().getHours();
     return h < 12 ? addDays(today(), -1) : today();
   }
+  // 取某一天“晚上”的睡眠：优先当天；若当天没有，看次日凌晨（兼容旧版本记录）
+  function sleepForDate(u, date){
+    const lg = (u.logs || {})[date];
+    if(lg && lg.sleep && lg.sleep.bed) return lg.sleep;
+    const nd = addDays(date, 1);
+    const nl = (u.logs || {})[nd];
+    if(nl && nl.sleep && nl.sleep.bed){
+      const h = parseInt(String(nl.sleep.bed).split(':')[0], 10);
+      if(h < 12) return nl.sleep;
+    }
+    return null;
+  }
   // 最近 16 小时内的一次睡眠（无论是否已记录起床），用于允许重复打卡
   function recentSleepEntry(){
     const u = user(), t = today(), y = addDays(t,-1);
@@ -823,6 +835,7 @@
     const op = planFor(oidx, os);
     const olog = ou.logs[today()] || {checks:{}};
     const ylog = ou.logs[addDays(today(),-1)] || {};
+    const ySleep = sleepForDate(ou, addDays(today(),-1));
     const total = ou.modules.filter(m=>m.type!=='timer').length;
     const done = ou.modules.filter(m=>m.type!=='timer' && (olog.checks||{})[m.id] >= m.target).length;
     let streak = 0, d = today();
@@ -832,7 +845,7 @@
       else if(i>0) break;
       d = addDays(d,-1);
     }
-    const y = ylog.sleep;
+    const y = ySleep;
     let yTxt;
     if(y && y.bed){
       yTxt = '昨日入睡 <b>' + y.bed + '</b> ' + (y.bedOk ? '✅' : '❌') +
@@ -840,7 +853,7 @@
     }else{
       yTxt = '昨日未记录入睡';
     }
-    const t = (olog.sleep && olog.sleep.wake) ? olog.sleep : ((ylog.sleep && ylog.sleep.wake) ? ylog.sleep : null);
+    const t = (olog.sleep && olog.sleep.wake) ? olog.sleep : ((y && y.wake) ? y : null);
     const tOpen = olog.sleep && olog.sleep.bed && !olog.sleep.wake ? olog.sleep : null;
     let tTxt;
     if(t){
@@ -987,8 +1000,9 @@
     const mods = (u.modules || []).filter(m=>m.type !== 'timer');
     const done = mods.filter(m=>((lg.checks||{})[m.id]||0) >= m.target).length;
     const allDone = mods.length === 0 ? true : done === mods.length;
-    const hasSleep = !!(lg.sleep && lg.sleep.bed);
-    const late = hasSleep && lg.sleep.bedOk === false;
+    const sleepRec = sleepForDate(u, date);
+    const hasSleep = !!sleepRec;
+    const late = hasSleep && sleepRec.bedOk === false;
     const onTime = hasSleep && !late;
 
     // 规则：晚于计划入睡直接扣花；按时睡且全部打卡得花；按时睡但没打完不加不扣
