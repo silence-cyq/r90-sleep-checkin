@@ -468,6 +468,20 @@
     if(u.logs[y] && u.logs[y].sleep && u.logs[y].sleep.bed && !u.logs[y].sleep.wake) return { key:y, s:u.logs[y].sleep };
     return null;
   }
+  // 最近 16 小时内的一次睡眠（无论是否已记录起床），用于允许重复打卡
+  function recentSleepEntry(){
+    const u = user(), t = today(), y = addDays(t,-1);
+    for(const key of [t, y]){
+      const sl = u.logs[key] && u.logs[key].sleep;
+      if(!sl || !sl.bed) continue;
+      const parts = sl.bed.split(':').map(Number);
+      const d = parseDate(key);
+      d.setHours(parts[0], parts[1], 0, 0);
+      if(parts[0] < 12) d.setDate(d.getDate() + 1);
+      if(Date.now() - d.getTime() <= 16 * 3600 * 1000) return { key, s: sl };
+    }
+    return null;
+  }
 
   function totalShift(s){ return ((toMin(s.startBed) - toMin(s.targetBed)) + 1440) % 1440; }
   function totalDays(s){
@@ -538,7 +552,11 @@
     }catch(e){
       syncOk = false;
     }
-    renderSync(); renderToday(); renderCheck();
+    renderSync();
+    if(changed){
+      renderToday();
+      if(!document.getElementById('view-flower').hidden) renderFlowers();
+    }
   }
   async function push(uid){
     const u = data.users[uid];
@@ -557,7 +575,7 @@
     u.updatedAt = Date.now();
     save();
     clearTimeout(pushTimer[uid]);
-    pushTimer[uid] = setTimeout(()=>push(uid), 700);
+    pushTimer[uid] = setTimeout(()=>push(uid), 300);
   }
 
   function renderSync(){
@@ -594,14 +612,18 @@
     document.getElementById('wakeTime').textContent = wake;
     document.getElementById('cycleText').textContent = s.cycles + ' 个周期 · ' + (s.cycles*1.5) + ' 小时';
 
+    const recent = recentSleepEntry();
+    const elSleep = document.getElementById('btnSleep');
+    const elWake = document.getElementById('btnWake');
+    elSleep.disabled = false;
+    elSleep.textContent = recent ? '重新记录入睡' : '我要睡了';
+    elWake.disabled = !recent;
+    elWake.textContent = (recent && recent.s.wake) ? '重新记录起床' : '我起床了';
+
     if(hasSleep){
       document.getElementById('heroLabel').textContent = sl.bedOk ? (entry.key === today() ? '已入睡 · 达标' : '昨晚入睡 · 达标') : '已入睡 · 晚于计划';
-      document.getElementById('btnSleep').disabled = true;
-      document.getElementById('btnWake').disabled = false;
     }else{
       document.getElementById('heroLabel').textContent = '今晚入睡';
-      document.getElementById('btnSleep').disabled = false;
-      document.getElementById('btnWake').disabled = true;
     }
 
     let st = '';
@@ -1174,32 +1196,40 @@
 
   document.getElementById('btnSleep').onclick = () => {
     const now = new Date();
-    const log = todayLog();
     const s = user().settings;
+    const prev = recentSleepEntry();
+    // 重复打卡：先撤销上一次因早睡带来的提前量，再按新时间重算
+    if(prev && prev.key === today() && prev.s.boostApplied){
+      s.boost = Math.max(0, (s.boost || 0) - prev.s.boostApplied);
+    }
     const p = planFor(currentDayIdx(), s);
     const plannedBed = toTime(p.bed);
     const plannedWake = toTime(p.wake);
     const bed = pad(now.getHours())+':'+pad(now.getMinutes());
     const bedOk = nightMin(bed) <= nightMin(plannedBed);
     const early = nightMin(plannedBed) - nightMin(bed);
+    let applied = 0;
     if(bedOk && early > 5){
-      s.boost = Math.min(totalShift(s), (s.boost || 0) + early);
+      applied = early;
+      s.boost = Math.min(totalShift(s), (s.boost || 0) + applied);
     }
     const wakeTarget = toTime(toMin(bed) + s.buffer + s.cycles * 90);
-    log.sleep = { bed, plannedBed, bedOk, wake:null, wakeOk:null, cycles:0, wakeTarget, plannedWake };
+    const oldWake = prev && prev.key === today() ? (prev.s.wake || null) : null;
+    const log = logAt(today());
+    log.sleep = { bed, plannedBed, bedOk, wake: oldWake, wakeOk: null, cycles: oldWake ? s.cycles : 0, wakeTarget, plannedWake, boostApplied: applied };
+    if(oldWake) log.sleep.wakeOk = nightMin(oldWake) <= nightMin(wakeTarget);
     markDirty(data.active); renderToday(); renderFlowers();
   };
   document.getElementById('btnWake').onclick = () => {
     const now = new Date();
-    const entry = currentOpenSleep();
+    const entry = recentSleepEntry();
     if(!entry) return;
-    const log = logAt(entry.key);
     const wake = pad(now.getHours())+':'+pad(now.getMinutes());
-    log.sleep.wake = wake;
+    entry.s.wake = wake;
     // 周期数只按计划固定，不随实际起床早晚变化
-    log.sleep.cycles = user().settings.cycles;
-    const target = log.sleep.wakeTarget || log.sleep.plannedWake;
-    log.sleep.wakeOk = target ? (nightMin(wake) <= nightMin(target)) : null;
+    entry.s.cycles = user().settings.cycles;
+    const target = entry.s.wakeTarget || entry.s.plannedWake;
+    entry.s.wakeOk = target ? (nightMin(wake) <= nightMin(target)) : null;
     markDirty(data.active); renderToday(); renderFlowers();
   };
 
@@ -1373,7 +1403,7 @@
   };
 
   setInterval(renderToday, 60000);
-  setInterval(pull, 20000);
+  setInterval(pull, 5000);
   document.addEventListener('visibilitychange', () => { if(!document.hidden) pull(); });
 
   renderAll();
