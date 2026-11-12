@@ -544,6 +544,7 @@
   // 实时通道：ntfy 订阅；完整快照：restful-api（每次打开读一次，避免触发每日配额）
   const NTFY_BASE = 'https://ntfy.sh/r90-yd-xj-7f3k9q-2026';
   let lastPull = 0, lastFullPush = 0, es = null;
+  const deletedIds = {};
 
   function applyDelta(p){
     if(!p || !p.uid || !data.users[p.uid]) return false;
@@ -641,7 +642,8 @@
       es.onmessage = (ev)=>{
         try{
           const m = JSON.parse(ev.data);
-          if(m.event !== 'message' || !m.message) return;
+          if(m.event === 'message_delete'){ if(m.sequence_id) deletedIds[m.sequence_id] = 1; return; }
+          if(m.event !== 'message' || !m.message || deletedIds[m.id]) return;
           onDelta(JSON.parse(m.message));
         }catch(e){}
       };
@@ -654,10 +656,16 @@
       const r = await fetch(NTFY_BASE + '/json?poll=1&since=all', {cache:'no-store'});
       if(!r.ok) return;
       const text = await r.text();
-      text.split('\n').filter(Boolean).forEach(line=>{
+      const lines = text.split('\n').filter(Boolean).map(line=>{
+        try{ return JSON.parse(line); }catch(e){ return null; }
+      }).filter(Boolean);
+      // 先收集被删除的消息，避免把已撤回的旧数据再应用一遍
+      const deleted = {};
+      lines.forEach(m=>{ if(m.event === 'message_delete' && m.sequence_id) deleted[m.sequence_id] = 1; });
+      lines.forEach(m=>{
+        if(m.event !== 'message' || !m.message || deleted[m.id]) return;
         try{
-          const m = JSON.parse(line);
-          if(m.event === 'message' && m.message) onDelta(JSON.parse(m.message));
+          onDelta(JSON.parse(m.message));
         }catch(e){}
       });
     }catch(e){}
