@@ -404,6 +404,7 @@
   const KEY = 'r90_checkin_v2';
   const API = 'https://api.restful-api.dev/objects/';
   const DAY = 86400000;
+  const GRACE = 5; // 打卡宽限（分钟）
   const DEFAULT_IDS = {
     yandong: 'ff808181a09d98f701a1c95cb2a2058f',
     xiaojin: 'ff808181a09d98f701a1c95cb4960590'
@@ -1330,7 +1331,7 @@
     const plannedBed = toTime(p.bed);
     const plannedWake = toTime(p.wake);
     const bed = pad(now.getHours())+':'+pad(now.getMinutes());
-    const bedOk = nightMin(bed) <= nightMin(plannedBed);
+    const bedOk = nightMin(bed) <= nightMin(plannedBed) + GRACE;
     const early = nightMin(plannedBed) - nightMin(bed);
     let applied = 0;
     if(bedOk && early > 5){
@@ -1341,7 +1342,7 @@
     const oldWake = prev && prev.key === skey ? (prev.s.wake || null) : null;
     const log = logAt(skey);
     log.sleep = { bed, plannedBed, bedOk, wake: oldWake, wakeOk: null, cycles: oldWake ? s.cycles : 0, wakeTarget, plannedWake, boostApplied: applied };
-    if(oldWake) log.sleep.wakeOk = nightMin(oldWake) <= nightMin(wakeTarget);
+    if(oldWake) log.sleep.wakeOk = nightMin(oldWake) <= nightMin(wakeTarget) + GRACE;
     markDirty(data.active); renderToday(); renderFlowers();
   };
   document.getElementById('btnWake').onclick = () => {
@@ -1353,7 +1354,7 @@
     // 周期数只按计划固定，不随实际起床早晚变化
     entry.s.cycles = user().settings.cycles;
     const target = entry.s.wakeTarget || entry.s.plannedWake;
-    entry.s.wakeOk = target ? (nightMin(wake) <= nightMin(target)) : null;
+    entry.s.wakeOk = target ? (nightMin(wake) <= nightMin(target) + GRACE) : null;
     markDirty(data.active); renderToday(); renderFlowers();
   };
 
