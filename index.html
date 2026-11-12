@@ -551,9 +551,14 @@
     const u = data.users[p.uid];
     if((p.updatedAt || 0) <= (u.updatedAt || 0)) return false;
     u.updatedAt = p.updatedAt;
+    if(p.name) u.name = p.name;
     if(p.settings) u.settings = p.settings;
     if(p.modules) u.modules = p.modules;
     if(p.overrides) u.overrides = p.overrides;
+    if(p.rewards) u.rewards = p.rewards;
+    if(p.redemptions) u.redemptions = p.redemptions;
+    if(p.penalties) u.penalties = p.penalties;
+    if(p.penaltyLog) u.penaltyLog = p.penaltyLog;
     if(p.recent) Object.assign(u.logs, p.recent);
     else if(p.date && p.log) u.logs[p.date] = p.log;
     save();
@@ -572,7 +577,10 @@
     const recent = {};
     [d, addDays(d,-1)].forEach(k=>{ if(u.logs[k]) recent[k] = u.logs[k]; });
     const payload = { t:'delta', uid, updatedAt:u.updatedAt,
+      name:u.name,
       settings:u.settings, modules:u.modules, overrides:u.overrides || {},
+      rewards:u.rewards || [], redemptions:u.redemptions || [],
+      penalties:u.penalties || [], penaltyLog:u.penaltyLog || [],
       date:d, log:u.logs[d] || null, recent };
     try{
       const r = await fetch(NTFY_BASE, {
@@ -588,6 +596,7 @@
     if(!force && Date.now() - lastPull < 5*60*1000) return;
     lastPull = Date.now();
     let changed = false;
+    const needFull = [];
     try{
       const results = await Promise.all(['yandong','xiaojin'].map(async uid=>{
         const r = await fetch(API + IDS[uid], {cache:'no-store'});
@@ -601,11 +610,14 @@
         if((res.remote.updatedAt || 0) > (local.updatedAt || 0)){
           data.users[res.uid] = res.remote;
           changed = true;
+        }else if((local.updatedAt || 0) > (res.remote.updatedAt || 0)){
+          needFull.push(res.uid);
         }
       });
       syncOk = true;
     }catch(e){ syncOk = false; }
     if(changed) save();
+    needFull.forEach(uid=>pushFull(uid));
     renderSync();
     if(changed){
       renderToday();
