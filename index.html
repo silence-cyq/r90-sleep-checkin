@@ -553,7 +553,8 @@
     if(p.settings) u.settings = p.settings;
     if(p.modules) u.modules = p.modules;
     if(p.overrides) u.overrides = p.overrides;
-    if(p.date && p.log) u.logs[p.date] = p.log;
+    if(p.recent) Object.assign(u.logs, p.recent);
+    else if(p.date && p.log) u.logs[p.date] = p.log;
     save();
     return true;
   }
@@ -567,9 +568,11 @@
   async function publish(uid){
     const u = data.users[uid];
     const d = today();
+    const recent = {};
+    [d, addDays(d,-1)].forEach(k=>{ if(u.logs[k]) recent[k] = u.logs[k]; });
     const payload = { t:'delta', uid, updatedAt:u.updatedAt,
       settings:u.settings, modules:u.modules, overrides:u.overrides || {},
-      date:d, log:u.logs[d] || null };
+      date:d, log:u.logs[d] || null, recent };
     try{
       const r = await fetch(NTFY_BASE, {
         method:'POST',
