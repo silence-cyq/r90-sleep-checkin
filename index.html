@@ -501,6 +501,18 @@
     }
     return null;
   }
+  // 按“5 分钟宽限”实时计算达标状态，旧记录也能生效
+  function bedOkOf(sl){
+    if(!sl || !sl.bed) return false;
+    if(sl.plannedBed) return nightMin(sl.bed) <= nightMin(sl.plannedBed) + GRACE;
+    return sl.bedOk !== false;
+  }
+  function wakeOkOf(sl){
+    if(!sl || !sl.wake) return false;
+    const t = sl.wakeTarget || sl.plannedWake;
+    if(t) return nightMin(sl.wake) <= nightMin(t) + GRACE;
+    return sl.wakeOk !== false;
+  }
   // 最近 16 小时内的一次睡眠（无论是否已记录起床），用于允许重复打卡
   function recentSleepEntry(){
     const u = user(), t = today(), y = addDays(t,-1);
@@ -743,7 +755,7 @@
     elWake.textContent = (recent && recent.s.wake) ? '重新记录起床' : '我起床了';
 
     if(hasSleep){
-      document.getElementById('heroLabel').textContent = sl.bedOk ? (entry.key === today() ? '已入睡 · 达标' : '昨晚入睡 · 达标') : '已入睡 · 晚于计划';
+      document.getElementById('heroLabel').textContent = bedOkOf(sl) ? (entry.key === today() ? '已入睡 · 达标' : '昨晚入睡 · 达标') : '已入睡 · 晚于计划';
     }else{
       document.getElementById('heroLabel').textContent = '今晚入睡';
     }
@@ -751,12 +763,12 @@
     let st = '';
     if(last){
       const ls = last.s;
-      st = (last.key === today() ? '本次' : '昨晚') + '入睡 ' + ls.bed + (ls.bedOk ? ' ✅' : ' ❌');
+      st = (last.key === today() ? '本次' : '昨晚') + '入睡 ' + ls.bed + (bedOkOf(ls) ? ' ✅' : ' ❌');
       if(ls.plannedBed){
         const d = nightMin(ls.bed) - nightMin(ls.plannedBed);
         st += d <= 0 ? '（早 ' + fmtDiff(d) + '）' : '（晚 ' + fmtDiff(d) + '）';
       }
-      if(ls.wake) st += ' · 起床 ' + ls.wake + (ls.wakeOk ? ' ✅' : ' ❌') + ' · ' + ls.cycles + ' 个周期';
+      if(ls.wake) st += ' · 起床 ' + ls.wake + (wakeOkOf(ls) ? ' ✅' : ' ❌') + ' · ' + ls.cycles + ' 个周期';
     }
     document.getElementById('sleepStatus').textContent = st;
 
@@ -849,8 +861,8 @@
     const y = ySleep;
     let yTxt;
     if(y && y.bed){
-      yTxt = '昨日入睡 <b>' + y.bed + '</b> ' + (y.bedOk ? '✅' : '❌') +
-        (y.wake ? ' · 起床 <b>' + y.wake + '</b> ' + (y.wakeOk ? '✅' : '❌') : '');
+      yTxt = '昨日入睡 <b>' + y.bed + '</b> ' + (bedOkOf(y) ? '✅' : '❌') +
+        (y.wake ? ' · 起床 <b>' + y.wake + '</b> ' + (wakeOkOf(y) ? '✅' : '❌') : '');
     }else{
       yTxt = '昨日未记录入睡';
     }
@@ -858,9 +870,9 @@
     const tOpen = olog.sleep && olog.sleep.bed && !olog.sleep.wake ? olog.sleep : null;
     let tTxt;
     if(t){
-      tTxt = '今日起床 <b>' + t.wake + '</b> ' + (t.wakeOk ? '✅' : '❌');
+      tTxt = '今日起床 <b>' + t.wake + '</b> ' + (wakeOkOf(t) ? '✅' : '❌');
     }else if(tOpen){
-      tTxt = '今日已入睡 <b>' + tOpen.bed + '</b> ' + (tOpen.bedOk ? '✅' : '❌') + ' · 待起床';
+      tTxt = '今日已入睡 <b>' + tOpen.bed + '</b> ' + (bedOkOf(tOpen) ? '✅' : '❌') + ' · 待起床';
     }else{
       tTxt = '今日未起床打卡';
     }
@@ -1003,7 +1015,7 @@
     const allDone = mods.length === 0 ? true : done === mods.length;
     const sleepRec = sleepForDate(u, date);
     const hasSleep = !!sleepRec;
-    const late = hasSleep && sleepRec.bedOk === false;
+    const late = hasSleep && !bedOkOf(sleepRec);
     const onTime = hasSleep && !late;
 
     // 规则：晚于计划入睡直接扣花；按时睡且全部打卡得花；按时睡但没打完不加不扣
@@ -1272,9 +1284,10 @@
     const st = calSel > today() ? null : dayStatus(u, calSel, calSel === today());
     let html = '<b style="color:#eef0f6">' + calSel + ' ' + weekday(calSel) + '</b> · ' +
       (st ? st.label : '未到这一天');
-    if(lg.sleep && lg.sleep.bed){
-      html += '<br>入睡 ' + lg.sleep.bed + (lg.sleep.bedOk ? ' ✅' : ' ❌') +
-        (lg.sleep.wake ? ' · 起床 ' + lg.sleep.wake + (lg.sleep.wakeOk ? ' ✅' : ' ❌') : ' · 待起床');
+    const sl = sleepForDate(u, calSel);
+    if(sl && sl.bed){
+      html += '<br>入睡 ' + sl.bed + (bedOkOf(sl) ? ' ✅' : ' ❌') +
+        (sl.wake ? ' · 起床 ' + sl.wake + (wakeOkOf(sl) ? ' ✅' : ' ❌') : ' · 待起床');
     }else{
       html += '<br>无入睡记录';
     }
