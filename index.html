@@ -333,6 +333,7 @@
       <div class="tip" id="paceTip" style="margin-top:6px"></div>
 
       <button class="save" id="btnSave">保存设置</button>
+      <button class="share" id="btnSync">立即同步（检查连接）</button>
       <button class="share" id="btnShare">复制共享链接（发给对方）</button>
       <a class="share" href="./guide/" style="display:block;text-align:center;text-decoration:none">查看使用说明</a>
       <button class="danger" id="btnReset">清空我的打卡记录</button>
@@ -340,6 +341,7 @@
     <div class="tip" style="padding:12px 4px">
       调整建议：白天多晒太阳、睡前 2 小时不碰强光；按计划入睡前 30 分钟关掉大屏。两个人的数据各自保存，互不覆盖。
     </div>
+    <div class="tip" style="padding:0 4px;color:#6f768c">版本 2026-11-12 · 数据每 5 秒同步</div>
   </section>
 
   <nav class="tabbar">
@@ -381,6 +383,19 @@
       <button class="primary" id="rwSave">保存</button>
     </div>
     <button class="del" id="rwDel" hidden>删除这一条</button>
+  </div>
+</div>
+
+<div class="modal" id="whoModal">
+  <div class="box">
+    <h3>你是哪一位？</h3>
+    <p style="font-size:12.5px;color:#9aa0b4;margin:0 0 14px;line-height:1.6">
+      选一次就行，这台设备会记住。选错会导致两个人的记录写到同一个人名下。
+    </p>
+    <div class="acts" style="flex-direction:column">
+      <button class="primary" id="whoY" style="width:100%">我是彦冬</button>
+      <button id="whoX" style="width:100%">我是小金</button>
+    </div>
   </div>
 </div>
 
@@ -439,6 +454,11 @@
     if(!data.users || !data.users.yandong) data = defaultData();
   }catch(e){ memoryOnly = true; data = defaultData(); }
 
+  const MEKEY = 'r90_me';
+  let me = null;
+  try{ me = localStorage.getItem(MEKEY); }catch(e){}
+  if(me && data.users[me]) data.active = me;
+
   const save = () => { if(memoryOnly) return; try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){ memoryOnly = true; } };
   const user = () => data.users[data.active];
   const otherId = () => data.active === 'yandong' ? 'xiaojin' : 'yandong';
@@ -457,16 +477,16 @@
   }
   // 当前这一次睡眠：优先今天，其次昨晚未记录起床的那次
   function currentSleepEntry(){
-    const u = user(), t = today(), y = addDays(t,-1);
-    if(u.logs[t] && u.logs[t].sleep && u.logs[t].sleep.bed) return { key:t, s:u.logs[t].sleep };
-    if(u.logs[y] && u.logs[y].sleep && u.logs[y].sleep.bed && !u.logs[y].sleep.wake) return { key:y, s:u.logs[y].sleep };
-    return null;
+    return recentSleepEntry();
   }
   function currentOpenSleep(){
-    const u = user(), t = today(), y = addDays(t,-1);
-    if(u.logs[t] && u.logs[t].sleep && u.logs[t].sleep.bed && !u.logs[t].sleep.wake) return { key:t, s:u.logs[t].sleep };
-    if(u.logs[y] && u.logs[y].sleep && u.logs[y].sleep.bed && !u.logs[y].sleep.wake) return { key:y, s:u.logs[y].sleep };
-    return null;
+    const r = recentSleepEntry();
+    return (r && !r.s.wake) ? r : null;
+  }
+  // 凌晨（<12 点）入睡，归到前一天那一晚
+  function sleepKeyNow(){
+    const h = new Date().getHours();
+    return h < 12 ? addDays(today(), -1) : today();
   }
   // 最近 16 小时内的一次睡眠（无论是否已记录起床），用于允许重复打卡
   function recentSleepEntry(){
@@ -521,7 +541,49 @@
   }
 
   // ---------- 同步 ----------
-  async function pull(){
+  // 实时通道：ntfy 订阅；完整快照：restful-api（每次打开读一次，避免触发每日配额）
+  const NTFY_BASE = 'https://ntfy.sh/r90-yd-xj-7f3k9q-2026';
+  let lastPull = 0, lastFullPush = 0, es = null;
+
+  function applyDelta(p){
+    if(!p || !p.uid || !data.users[p.uid]) return false;
+    const u = data.users[p.uid];
+    if((p.updatedAt || 0) <= (u.updatedAt || 0)) return false;
+    u.updatedAt = p.updatedAt;
+    if(p.settings) u.settings = p.settings;
+    if(p.modules) u.modules = p.modules;
+    if(p.overrides) u.overrides = p.overrides;
+    if(p.date && p.log) u.logs[p.date] = p.log;
+    save();
+    return true;
+  }
+  function onDelta(p){
+    if(applyDelta(p)){
+      renderUsers(); renderToday();
+      if(!document.getElementById('view-flower').hidden) renderFlowers();
+      renderSync();
+    }
+  }
+  async function publish(uid){
+    const u = data.users[uid];
+    const d = today();
+    const payload = { t:'delta', uid, updatedAt:u.updatedAt,
+      settings:u.settings, modules:u.modules, overrides:u.overrides || {},
+      date:d, log:u.logs[d] || null };
+    try{
+      const r = await fetch(NTFY_BASE, {
+        method:'POST',
+        headers:{'Content-Type':'text/plain'},
+        body: JSON.stringify(payload)
+      });
+      syncOk = r.ok;
+    }catch(e){ syncOk = false; }
+    renderSync();
+  }
+  async function pull(force){
+    if(!force && Date.now() - lastPull < 5*60*1000) return;
+    lastPull = Date.now();
+    let changed = false;
     try{
       const results = await Promise.all(['yandong','xiaojin'].map(async uid=>{
         const r = await fetch(API + IDS[uid], {cache:'no-store'});
@@ -529,36 +591,24 @@
         const j = await r.json();
         return { uid, remote: j.data };
       }));
-      let changed = false;
-      const needPush = [];
       results.forEach(res=>{
-        if(!res) return;
-        if(!res.remote || !res.remote.settings){
-          if(data.users[res.uid].updatedAt) needPush.push(res.uid);
-          return;
-        }
+        if(!res || !res.remote || !res.remote.settings) return;
         const local = data.users[res.uid];
-        const rU = res.remote.updatedAt || 0, lU = local.updatedAt || 0;
-        if(rU > lU){
+        if((res.remote.updatedAt || 0) > (local.updatedAt || 0)){
           data.users[res.uid] = res.remote;
           changed = true;
-        }else if(lU > rU){
-          needPush.push(res.uid);
         }
       });
-      if(changed) save();
-      needPush.forEach(uid=>push(uid));
       syncOk = true;
-    }catch(e){
-      syncOk = false;
-    }
+    }catch(e){ syncOk = false; }
+    if(changed) save();
     renderSync();
     if(changed){
       renderToday();
       if(!document.getElementById('view-flower').hidden) renderFlowers();
     }
   }
-  async function push(uid){
+  async function pushFull(uid){
     const u = data.users[uid];
     try{
       const r = await fetch(API + IDS[uid], {
@@ -575,7 +625,39 @@
     u.updatedAt = Date.now();
     save();
     clearTimeout(pushTimer[uid]);
-    pushTimer[uid] = setTimeout(()=>push(uid), 300);
+    pushTimer[uid] = setTimeout(()=>publish(uid), 250);
+    if(Date.now() - lastFullPush > 30*60*1000){
+      lastFullPush = Date.now();
+      pushFull(uid);
+    }
+  }
+  function startSSE(){
+    if(!window.EventSource) return;
+    try{
+      es = new EventSource(NTFY_BASE + '/sse');
+      es.onmessage = (ev)=>{
+        try{
+          const m = JSON.parse(ev.data);
+          if(m.event !== 'message' || !m.message) return;
+          onDelta(JSON.parse(m.message));
+        }catch(e){}
+      };
+      es.onopen = ()=>{ syncOk = true; renderSync(); };
+      es.onerror = ()=>{ syncOk = false; renderSync(); };
+    }catch(e){}
+  }
+  async function pullRecent(){
+    try{
+      const r = await fetch(NTFY_BASE + '/json?poll=1&since=all', {cache:'no-store'});
+      if(!r.ok) return;
+      const text = await r.text();
+      text.split('\n').filter(Boolean).forEach(line=>{
+        try{
+          const m = JSON.parse(line);
+          if(m.event === 'message' && m.message) onDelta(JSON.parse(m.message));
+        }catch(e){}
+      });
+    }catch(e){}
   }
 
   function renderSync(){
@@ -592,7 +674,11 @@
       const b = document.createElement('button');
       b.textContent = data.users[id].name || (id==='yandong'?'彦冬':'小金');
       b.className = data.active === id ? 'on' : '';
-      b.onclick = () => { data.active = id; rwTarget = null; save(); renderAll(); };
+      b.onclick = () => {
+        data.active = id; rwTarget = null;
+        try{ localStorage.setItem(MEKEY, id); }catch(e){}
+        save(); renderAll();
+      };
       box.appendChild(b);
     });
   }
@@ -1198,8 +1284,9 @@
     const now = new Date();
     const s = user().settings;
     const prev = recentSleepEntry();
+    const skey = sleepKeyNow();
     // 重复打卡：先撤销上一次因早睡带来的提前量，再按新时间重算
-    if(prev && prev.key === today() && prev.s.boostApplied){
+    if(prev && prev.key === skey && prev.s.boostApplied){
       s.boost = Math.max(0, (s.boost || 0) - prev.s.boostApplied);
     }
     const p = planFor(currentDayIdx(), s);
@@ -1214,8 +1301,8 @@
       s.boost = Math.min(totalShift(s), (s.boost || 0) + applied);
     }
     const wakeTarget = toTime(toMin(bed) + s.buffer + s.cycles * 90);
-    const oldWake = prev && prev.key === today() ? (prev.s.wake || null) : null;
-    const log = logAt(today());
+    const oldWake = prev && prev.key === skey ? (prev.s.wake || null) : null;
+    const log = logAt(skey);
     log.sleep = { bed, plannedBed, bedOk, wake: oldWake, wakeOk: null, cycles: oldWake ? s.cycles : 0, wakeTarget, plannedWake, boostApplied: applied };
     if(oldWake) log.sleep.wakeOk = nightMin(oldWake) <= nightMin(wakeTarget);
     markDirty(data.active); renderToday(); renderFlowers();
@@ -1342,6 +1429,13 @@
     }
   };
 
+  document.getElementById('btnSync').onclick = async () => {
+    await pull(true);
+    await pullRecent();
+    await publish(data.active);
+    alert(syncOk ? '同步成功：' + new Date().toLocaleTimeString('zh-CN') : '同步失败，请检查网络后重试');
+  };
+
   document.getElementById('btnReset').onclick = () => {
     if(!confirm('清空 ' + user().name + ' 的全部打卡和睡眠记录？')) return;
     user().logs = {};
@@ -1402,16 +1496,26 @@
     calSel = null; renderCalendar();
   };
 
+  function chooseMe(id){
+    data.active = id;
+    try{ localStorage.setItem(MEKEY, id); }catch(e){}
+    document.getElementById('whoModal').classList.remove('show');
+    save(); renderAll();
+  }
+  document.getElementById('whoY').onclick = () => chooseMe('yandong');
+  document.getElementById('whoX').onclick = () => chooseMe('xiaojin');
+
   setInterval(renderToday, 60000);
-  setInterval(pull, 5000);
-  document.addEventListener('visibilitychange', () => { if(!document.hidden) pull(); });
+  setInterval(() => { if(!document.hidden) pullRecent(); }, 60000);
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden){ pullRecent(); pull(); }
+  });
 
   renderAll();
-  pull().then(()=>{
-    // 首次使用：把本地默认数据推到共享槽
-    ['yandong','xiaojin'].forEach(uid=>{
-      if(!data.users[uid].updatedAt) push(uid);
-    });
+  if(!me) setTimeout(() => document.getElementById('whoModal').classList.add('show'), 300);
+  pullRecent().then(()=>pull(true)).then(()=>{
+    publish(data.active);
+    startSSE();
   });
 })();
 </script>
